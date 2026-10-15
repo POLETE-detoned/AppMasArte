@@ -694,3 +694,10 @@ body.public { min-height: 100vh; }
 @media (max-width: 700px) { .buy-catalog .grid { grid-template-columns: 1fr; } .buy-top .btn { min-height: 46px; } }
 .buy-grid > *, .buy-catalog { min-width: 0; }
 @media (max-width: 560px) { .section-head .btn.big { width: 100%; } }
+
+/* ---------- Restablecer datos ---------- */
+.reset-steps { margin: 0 0 16px; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; } .reset-steps code { background: var(--cream-2); padding: 1px 7px; border-radius: 6px; font-size: 13px; }
+.reset-counts { display: grid; gap: 6px; margin-bottom: 12px; min-height: 40px; }
+.rc { display: flex; justify-content: space-between; align-items: center; background: var(--cream); border-radius: 12px; padding: 10px 14px; font-size: 15px; } .rc b { font-family: var(--serif); font-size: 22px; } .rc.na { opacity: .6; } .rc.na b { font-family: var(--sans); font-size: 13px; }
+.reset-log { margin-top: 14px; display: grid; gap: 6px; font-size: 14.5px; } .reset-log p { margin: 0; } .reset-log .ok { color: #2f5d31; } .reset-log .bad { color: var(--out); font-weight: 600; }
+#card .btn { width: 100%; margin-top: 10px; }
