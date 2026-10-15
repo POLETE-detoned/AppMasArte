@@ -1,10 +1,11 @@
-# MasArte · Control de stock y ventas
+# +Arte Home · Control de stock y ventas
 
 App web (HTML + CSS + JS, sin build) para una tienda de interiorismo: inventario por categorías, botón **Vender**, historial con quién hizo qué, resumen y **sincronización en tiempo real** entre móviles y ordenadores.
 
 ```
 index.html        → la app
 css/styles.css    → diseño
+img/              → logo e iconos (+Arte Home)
 js/config.js      → ⚙️ aquí pones tu Firebase y el PIN
 js/store.js       → capa de datos (Firestore o modo local)
 js/app.js         → lógica de la interfaz

@@ -84,8 +84,6 @@ b { font-weight: 650; }
 .login-card { width: min(420px, 100%); background: var(--ivory); border-radius: 28px; padding: 36px 28px 28px; box-shadow: var(--sh-2); text-align: center; animation: rise .7s var(--ease) both; }
 .login-card h1 { margin: 6px 0 2px; font-size: 44px; line-height: 1; }
 .login-card form { margin-top: 22px; text-align: left; }
-.login-mark { width: 62px; height: 62px; margin: 0 auto; border-radius: 20px; background: var(--sage); position: relative; box-shadow: 0 10px 22px rgba(91, 112, 88, .3); animation: sway 5s ease-in-out infinite; }
-.login-mark::after, .brand-mark::after { content: ''; position: absolute; inset: 22% 28%; background: var(--cream); border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; }
 .shake { animation: shake .42s; }
 .form-error { color: var(--out); font-size: 14px; min-height: 20px; margin: 4px 0 8px; font-weight: 500; }
 
@@ -113,7 +111,6 @@ b { font-weight: 650; }
   border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
 }
 .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
-.brand-mark { width: 38px; height: 38px; border-radius: 12px; background: var(--sage); position: relative; flex: none; box-shadow: 0 4px 10px rgba(91, 112, 88, .25); }
 .brand-text { display: flex; flex-direction: column; line-height: 1; }
 .brand-name { font-family: var(--serif); font-weight: 700; font-size: 25px; letter-spacing: .01em; }
 .brand-tag { font-size: 10.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
@@ -499,4 +496,18 @@ main { padding: 22px var(--pad) 120px; max-width: 1320px; margin: 0 auto; }
   .arow { grid-template-columns: minmax(0, 1fr) auto; } .arow-act { grid-column: 1 / -1; } .arow-act .btn { flex: 1; } .stk { grid-column: 1 / -1; justify-content: space-around; }
   .tabs-bottom { left: 8px; right: 8px; padding: 4px; } .tabs-bottom .tab { font-size: 10.5px; padding: 6px 1px; letter-spacing: -.01em; } .tabs-bottom .tab .ic { width: 22px; height: 22px; }
   .tab-n { top: 0; right: 50%; margin-right: -22px; }
+}
+
+/* ---------- Logo +Arte Home ---------- */
+.brand-logo { width: 44px; height: 44px; border-radius: 50%; flex: none; display: block; box-shadow: 0 3px 10px rgba(60, 45, 25, .18); background: #fff; }
+.brand-tag:empty { display: none; }
+.brand-name { font-size: 27px; }
+.login-logo { width: 120px; height: 120px; display: block; margin: 0 auto 6px; border-radius: 50%; box-shadow: 0 12px 28px rgba(60, 45, 25, .18); animation: sway 6s ease-in-out infinite; }
+@media (max-width: 760px) { .brand-logo { width: 40px; height: 40px; } .brand-name { font-size: 24px; } }
+.brand, .brand-name { white-space: nowrap; }
+@media (max-width: 1180px) { .u-change { display: none; } .tabs-top { margin-left: 4px; } .tabs-top .tab { padding: 0 11px; } }
+.brand { flex: none; }
+@media (min-width: 761px) and (max-width: 1320px) {
+  .tabs-top .tab:not(.active) span { display: none; }
+  .tabs-top .tab { padding: 0 13px; }
 }

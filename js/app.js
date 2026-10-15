@@ -240,9 +240,9 @@
     const names = Array.from(new Set([].concat(cfg.staff || [], recents))).slice(0, 8);
     root.innerHTML =
       '<div class="login-card">' +
-        '<div class="login-mark"></div>' +
-        '<h1 class="serif">' + esc(cfg.storeName || 'MasArte') + '</h1>' +
-        '<p class="muted">' + esc(cfg.tagline || '') + ' · Control de stock y ventas</p>' +
+        '<img class="login-logo" src="img/logo.png" alt="Logo ' + esc(cfg.storeName || '+Arte Home') + '" width="120" height="120">' +
+        '<h1 class="serif">' + esc(cfg.storeName || '+Arte Home') + '</h1>' +
+        '<p class="muted">' + (cfg.tagline ? esc(cfg.tagline) + ' · ' : '') + 'Control de stock y ventas</p>' +
         '<form id="loginForm" autocomplete="off" novalidate>' +
           (names.length ? '<div class="chips quick" id="quickNames">' + names.map(n => '<button type="button" class="chip">' + esc(n) + '</button>').join('') + '</div>' : '') +
           '<label class="field"><span>¿Quién eres?</span><input id="loginName" type="text" placeholder="Tu nombre" maxlength="30" autocapitalize="words" required></label>' +
@@ -296,11 +296,11 @@
     { id: 'admin', label: 'Admin', ic: 'admin' }
   ];
   function renderHeader() {
-    $('#brandName').textContent = cfg.storeName || 'MasArte';
+    $('#brandName').textContent = cfg.storeName || '+Arte Home';
     $('#brandTag').textContent = cfg.tagline || '';
     const initial = (state.user || '?').trim().charAt(0).toUpperCase();
     $('#userChip').innerHTML = '<span class="avatar">' + esc(initial) + '</span><span class="u-name">' + esc(state.user) + '</span><span class="u-change">Cambiar</span>';
-    const tabs = VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '">' + icon(v.ic) + '<span>' + v.label + '</span>' + (v.badge && cartUnits(state.customerId) ? '<em class="tab-n">' + cartUnits(state.customerId) + '</em>' : '') + '</button>').join('');
+    const tabs = VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '" title="' + v.label + '">' + icon(v.ic) + '<span>' + v.label + '</span>' + (v.badge && cartUnits(state.customerId) ? '<em class="tab-n">' + cartUnits(state.customerId) + '</em>' : '') + '</button>').join('');
     $('#tabsTop').innerHTML = tabs;
     $('#tabsBottom').innerHTML = tabs;
     $('#fab').hidden = state.view !== 'inventory';

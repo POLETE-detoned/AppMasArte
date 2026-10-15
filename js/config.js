@@ -7,8 +7,8 @@
    2) Cambia el PIN de la tienda.
    ============================================================ */
 window.MASARTE_CONFIG = {
-  storeName: "MasArte",
-  tagline: "Interiorismo",
+  storeName: "+Arte Home",
+  tagline: "",
 
   // PIN que deben teclear los dependientes al entrar. Déjalo vacío ("") para no pedirlo.
   shopPin: "2010",
