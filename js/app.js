@@ -762,33 +762,68 @@
   /* =========================================================
      RESUMEN
      ========================================================= */
-  // Por cliente: sus datos y lo que compró en cada fecha
+  // Compras por cliente: tarjeta por cliente con línea de tiempo animada (fecha → productos)
+  const custOpen = new Set(), custPlayed = new Set();
+  let custInit = false;
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+  function itemHTML(l, i) {
+    const pr = byId(l.productId), key = catKey(l.category || (pr && pr.category));
+    const thumb = pr && pr.photo ? '<img src="' + esc(pr.photo) + '" alt="" loading="lazy" decoding="async">' : '<div class="ph ph-' + key + '">' + icon(key) + '</div>';
+    const tags = (l.discount === 100 ? '<em class="tagd free">GRATIS</em>' : l.discount ? '<em class="tagd">−' + l.discount + ' %</em>' : '') + (l.promoPct ? '<em class="tagd promo">Promo −' + l.promoPct + ' %</em>' : '');
+    return '<li class="it" style="--j:' + i + '"><div class="it-th">' + thumb + '<span class="it-q">×' + l.qty + '</span></div>' +
+      '<div class="it-main"><b>' + esc(l.name) + '</b>' + (l.variant ? '<span class="muted">' + esc(l.variant) + '</span>' : '') +
+      '<div class="it-price">' + l.qty + ' × ' + (l.unitFinal < l.listPrice ? '<s>' + money(l.listPrice) + '</s> ' : '') + '<b>' + money(l.unitFinal) + '</b>' + tags + '</div></div>' +
+      '<div class="it-tot">' + money(l.lineTotal) + '</div></li>';
+  }
+
+  function dayHTML(d, di) {
+    const dt = new Date(d.at), today = ymd(Date.now()), yest = ymd(Date.now() - 864e5);
+    const rel = d.k === today ? 'Hoy' : d.k === yest ? 'Ayer' : '';
+    const long = cap(dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+    const all = d.orders.reduce((a, o) => a.concat(o.lines || []), []);
+    const uds = all.reduce((a, l) => a + l.qty, 0), total = d.orders.reduce((a, o) => a + o.total, 0), saving = d.orders.reduce((a, o) => a + (o.saving || 0), 0);
+    const promos = Array.from(new Set(d.orders.filter(o => o.promo).map(o => o.promo.name)));
+    const sentence = 'El día ' + fmtDay(d.at) + ' compró ' + listJoin(all.map(l => l.name + (l.qty > 1 ? ' ×' + l.qty : '')));
+    let n = 0;
+    const blocks = d.orders.map(o => {
+      const lines = (o.lines || []).map(l => itemHTML(l, n++)).join('');
+      return '<div class="ob">' + (d.orders.length > 1 ? '<div class="ob-h"><span>' + icon('bag') + 'Compra de las ' + new Date(o.at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + '</span><b>' + money(o.total) + '</b></div>' : '') + '<ul class="its">' + lines + '</ul></div>';
+    }).join('');
+    return '<li class="dy" style="--d:' + di + '"><div class="d-badge' + (rel === 'Hoy' ? ' today' : '') + '"><b>' + dt.getDate() + '</b><span>' + dt.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '') + '</span><em>' + dt.getFullYear() + '</em></div>' +
+      '<div class="d-card"><div class="d-head"><div><b>' + (rel ? rel + ' · ' : '') + esc(long.split(',')[0]) + '</b><span class="muted">' + esc(long.replace(/^[^,]+, /, '')) + '</span></div>' +
+        '<div class="d-total"><b>' + money(total) + '</b><span>' + uds + (uds === 1 ? ' artículo' : ' artículos') + '</span></div></div>' +
+        '<span class="sr-only">' + esc(sentence) + '</span>' + blocks +
+        (saving > 0 || promos.length ? '<div class="d-foot">' + (saving > 0 ? '<span class="save">Ahorro ' + money(saving) + '</span>' : '') + promos.map(x => '<span class="promo">Promoción «' + esc(x) + '»</span>').join('') + '</div>' : '') +
+      '</div></li>';
+  }
+
   function renderCustSummary(root) {
     const by = {};
     state.orders.forEach(o => { (by[o.customerId] || (by[o.customerId] = { id: o.customerId, name: o.customerName, orders: [] })).orders.push(o); });
     const list = Object.values(by).sort((a, b) => b.orders[0].at - a.orders[0].at);
     const box = $('#custSum', root), q = $('[data-mi="filter"]', root);
-    $('#custSumNote', root).textContent = list.length
-      ? list.length + (list.length === 1 ? ' cliente con compras' : ' clientes con compras') + ' · el más reciente primero' + (state.orders.length >= 300 ? ' · se muestran las últimas 300 compras' : '')
-      : '';
+    const sum = c => c.orders.reduce((a, o) => a + o.total, 0);
+    const revenue = list.reduce((a, c) => a + sum(c), 0), nOrders = state.orders.length;
+    $('#custKpis', root).innerHTML = list.length
+      ? '<div class="ck"><span>Clientes con compras</span><b>' + list.length + '</b></div><div class="ck"><span>Compras</span><b>' + nOrders + '</b></div>' +
+        '<div class="ck"><span>Facturado</span><b>' + money(revenue) + '</b></div><div class="ck"><span>Ticket medio</span><b>' + money(nOrders ? revenue / nOrders : 0) + '</b></div>' : '';
+    $('#custSumNote', root).textContent = list.length ? 'Toca un cliente para ver qué se llevó y cuándo.' + (state.orders.length >= 300 ? ' Se muestran las últimas 300 compras.' : '') : '';
     if (!list.length) { box.innerHTML = '<p class="muted pad">Todavía no hay compras asociadas a clientes. Aparecerán aquí al finalizar una compra desde el carrito.</p>'; return; }
-    const open = new Set($$('#custSum .cs[open]', root).map(d => d.dataset.id));
-    box.innerHTML = list.map(c => {
-      const cu = customerById(c.id), name = cu ? cu.name : c.name;
-      const total = c.orders.reduce((a, o) => a + o.total, 0), uds = c.orders.reduce((a, o) => a + (o.units || 0), 0);
+    if (!custInit) { custOpen.add(list[0].id); custInit = true; }
+    const max = Math.max.apply(null, list.map(sum));
+    box.innerHTML = list.map((c, ci) => {
+      const cu = customerById(c.id), name = cu ? cu.name : c.name, total = sum(c), uds = c.orders.reduce((a, o) => a + (o.units || 0), 0);
       const days = [];
-      c.orders.forEach(o => {   // las compras llegan de la más reciente a la más antigua
-        const k = ymd(o.at); let d = days.find(x => x.k === k);
-        if (!d) { d = { k, at: o.at, items: [], total: 0 }; days.push(d); }
-        d.total += o.total;
-        (o.lines || []).forEach(l => { const it = d.items.find(x => x.id === l.productId && x.var === (l.variant || '')); if (it) it.qty += l.qty; else d.items.push({ id: l.productId, name: l.name, var: l.variant || '', qty: l.qty }); });
-      });
-      return '<details class="cs" data-id="' + esc(c.id) + '"' + (open.has(c.id) || list.length === 1 ? ' open' : '') + ' data-text="' + esc(((name || '') + ' ' + (cu ? cu.phone + ' ' + cu.email : '')).toLowerCase()) + '">' +
-        '<summary><span class="avatar sm">' + esc((name || '?').charAt(0).toUpperCase()) + '</span>' +
-          '<div class="cs-main"><b>' + esc(name) + '</b><span class="cs-contact">' + (cu ? (contactHTML(c.id) || '<span class="muted">Sin teléfono ni correo</span>') : '<span class="muted">Cuenta eliminada</span>') + '</span></div>' +
-          '<div class="cs-tot"><b>' + money(total) + '</b><span class="muted">' + c.orders.length + (c.orders.length === 1 ? ' compra' : ' compras') + ' · ' + uds + (uds === 1 ? ' ud.' : ' uds.') + '</span></div></summary>' +
-        '<div class="cs-body">' + days.map(d => '<p class="cs-day"><b>El día ' + fmtDay(d.at) + '</b> compró ' + esc(listJoin(d.items.map(i => i.name + (i.var ? ' (' + i.var + ')' : '') + (i.qty > 1 ? ' ×' + i.qty : '')))) + ' <span class="muted">· ' + money(d.total) + '</span></p>').join('') +
-          (cu ? '<button class="btn soft" type="button" data-m="custedit" data-id="' + esc(c.id) + '">' + icon('edit') + 'Editar teléfono / correo</button>' : '') + '</div></details>';
+      c.orders.forEach(o => { const k = ymd(o.at); let d = days.find(x => x.k === k); if (!d) { d = { k, at: o.at, orders: [] }; days.push(d); } d.orders.push(o); });
+      const open = custOpen.has(c.id);
+      return '<article class="cc' + (open ? ' open' : '') + (custPlayed.has(c.id) ? ' played' : '') + '" data-id="' + esc(c.id) + '" style="--ci:' + Math.min(ci, 8) + '" data-text="' + esc(((name || '') + ' ' + (cu ? cu.phone + ' ' + cu.email : '')).toLowerCase()) + '">' +
+        '<button type="button" class="cc-head" aria-expanded="' + open + '"><span class="avatar">' + esc((name || '?').charAt(0).toUpperCase()) + '</span>' +
+          '<span class="cc-who"><b>' + esc(name) + '</b><span class="cs-contact">' + (cu ? (contactHTML(c.id) || '<span class="muted">Sin teléfono ni correo</span>') : '<span class="muted">Cuenta eliminada</span>') + '</span></span>' +
+          '<span class="cc-stats"><span><b data-count="' + total + '" data-money="1">' + money(total) + '</b><em>total</em></span><span><b data-count="' + c.orders.length + '">' + c.orders.length + '</b><em>' + (c.orders.length === 1 ? 'compra' : 'compras') + '</em></span><span><b data-count="' + uds + '">' + uds + '</b><em>' + (uds === 1 ? 'artículo' : 'artículos') + '</em></span></span>' +
+          '<span class="cc-chev" aria-hidden="true"></span><span class="cc-bar" aria-hidden="true"><i style="width:' + Math.max(6, total / max * 100) + '%"></i></span></button>' +
+        '<div class="cc-body"><div class="cc-inner"><ol class="tl2">' + days.map(dayHTML).join('') + '</ol>' +
+          (cu ? '<div class="cc-act"><button class="btn soft" type="button" data-m="custedit" data-id="' + esc(c.id) + '">' + icon('edit') + 'Editar datos del cliente</button></div>' : '') + '</div></div></article>';
     }).join('');
     if (q && q.value) q.dispatchEvent(new Event('input', { bubbles: true }));
   }
@@ -813,7 +848,17 @@
         '</div>' +
         '<section class="panel panel-wide"><div class="panel-head"><h3 class="serif">Compras por cliente</h3>' +
           '<label class="search sm">' + icon('search') + '<input type="search" data-mi="filter" data-target="custSum" placeholder="Buscar cliente, teléfono o correo…" autocomplete="off"></label></div>' +
-          '<p class="muted small" id="custSumNote"></p><div id="custSum"></div></section>';
+          '<div class="cks" id="custKpis"></div><p class="muted small" id="custSumNote"></p><div id="custSum"></div></section>';
+      $('#custSum', root).addEventListener('click', e => {
+        const h = e.target.closest('.cc-head'); if (!h) return;
+        const card = h.closest('.cc'), id = card.dataset.id, opening = !card.classList.contains('open');
+        if (opening) {
+          custOpen.add(id); custPlayed.delete(id); card.classList.remove('played'); card.classList.add('open');
+          $$('[data-count]', card).forEach(el => { el.dataset.v = 0; countUp(el, Number(el.dataset.count), el.dataset.money ? money : null); });
+          setTimeout(() => { if (custOpen.has(id)) { custPlayed.add(id); card.classList.add('played'); } }, 1800);
+        } else { custOpen.delete(id); card.classList.remove('open'); }
+        h.setAttribute('aria-expanded', opening);
+      });
       $('#rangeChips', root).addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { state.range = b.dataset.r; renderSummary(); } });
     }
     $('#truncSum', root).innerHTML = truncHTML();
