@@ -404,6 +404,11 @@
         await ref.set({ name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), createdAt: Date.now(), createdBy: user });
         return ref.id;
       },
+      async updateCustomer(id, fields, user) {
+        const name = String(fields.name || '').trim();
+        if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
+        await col('customers').doc(id).update({ name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), updatedAt: Date.now(), updatedBy: user });
+      },
       cartSetLine(customerId, productId, qty, discount, user) {
         return cartOp(customerId, productId, r => coreSetLine({ now: Date.now(), user, customer: r.customer, cart: r.cart, product: r.products[productId] || null, productId, qty, discount }));
       },
@@ -578,6 +583,14 @@
         db.customers[id] = { name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), createdAt: Date.now(), createdBy: user };
         save();
         return id;
+      },
+      async updateCustomer(id, fields, user) {
+        const name = String(fields.name || '').trim();
+        if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
+        db = load();
+        if (!db.customers[id]) throw new Error('La cuenta del cliente ya no existe.');
+        Object.assign(db.customers[id], { name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), updatedAt: Date.now(), updatedBy: user });
+        save();
       },
       async cartSetLine(customerId, productId, qty, discount, user) {
         cartOp(customerId, productId, r => coreSetLine({ now: Date.now(), user, customer: r.customer, cart: r.cart, product: r.products[productId] || null, productId, qty, discount }));

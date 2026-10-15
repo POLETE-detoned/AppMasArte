@@ -24,6 +24,8 @@
       ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '');
     return date + ' · ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
+  const fmtDay = ms => new Date(ms).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  const listJoin = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1]);
   const startOfDay = (d) => { const x = new Date(d || Date.now()); x.setHours(0, 0, 0, 0); return x.getTime(); };
   const ymd = ms => { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 
@@ -51,6 +53,8 @@
     shop: '<path d="M4 9l1.2-4.5h13.6L20 9"/><path d="M4 9h16v1.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0z"/><path d="M5.5 12.5V20h13v-7.5M10 20v-4h4v4"/>',
     cart: '<circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/><path d="M3 4h2.4l2 10.5h10.2L19.5 8H6.2"/>',
     admin: '<path d="M12 3l7 3v5.5c0 4.2-2.8 7.4-7 9-4.2-1.6-7-4.8-7-9V6z"/><path d="M9.2 12l2 2 3.8-4"/>',
+    phone: '<path d="M5 4.5h3.5l1.7 4.2-2.2 1.4a11 11 0 0 0 5.9 5.9l1.4-2.2 4.2 1.7V19a1.5 1.5 0 0 1-1.6 1.5C10.9 20 4 13.1 3.5 6.1A1.5 1.5 0 0 1 5 4.5z"/>',
+    mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/><path d="M4 7.5l8 6 8-6"/>',
     tag: '<path d="M3.5 12.2V4.5h7.7l9 9a1.6 1.6 0 0 1 0 2.3l-5.4 5.4a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8" cy="9" r="1.3"/>',
     inv: '<path d="M4 8.5L12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5l8 4.5 8-4.5M12 13v7"/>',
     ventas: '<path d="M6 4h12v16l-2.2-1.5L13.6 20 12 18.5 10.4 20l-2.2-1.5L6 20z"/><path d="M9 8.5h6M9 12h6"/>',
@@ -100,6 +104,14 @@
   const cartOf = id => state.carts.find(c => c.id === id) || null;
   const promoById = id => state.promos.find(x => x.id === id) || null;
   const productsMap = () => { const m = {}; state.products.forEach(p => { m[p.id] = p; }); return m; };
+  // Teléfono y correo de una cuenta de cliente (HTML con iconos)
+  function contactHTML(customerId) {
+    const c = customerById(customerId); if (!c) return '';
+    const parts = [];
+    if (c.phone) parts.push('<span class="ct">' + icon('phone') + esc(c.phone) + '</span>');
+    if (c.email) parts.push('<span class="ct">' + icon('mail') + esc(c.email) + '</span>');
+    return parts.join('');
+  }
   const cartUnits = id => { const c = cartOf(id); return c ? (c.items || []).reduce((a, i) => a + i.qty, 0) : 0; };
   const units = m => (m.qty > 0 ? m.qty : 1);
   const statusOf = p => ((p.stock || 0) <= 0 ? 'out' : p.stock <= LOW ? 'low' : 'ok');
@@ -652,6 +664,14 @@
       (!f.user || m.user === f.user) && (!f.cat || m.category === f.cat) && (!f.type || m.type === f.type) && m.at >= from && m.at <= to);
   }
 
+  // Frase de la venta: a quién se vendió (con teléfono y correo si los hay)
+  function saleWho(m) {
+    if (m.type !== 'sale') return '';
+    if (!m.customerId && !m.customerName) return '<span class="who muted">Venta rápida en tienda · sin cuenta de cliente</span>';
+    const c = customerById(m.customerId), name = c ? c.name : m.customerName;
+    return '<span class="who">Ha sido vendido al cliente <b>' + esc(name) + '</b>' + (contactHTML(m.customerId) ? ' ' + contactHTML(m.customerId) : '') + '</span>';
+  }
+
   function renderSales() {
     const root = $('#view-sales');
     const f = state.sf;
@@ -708,7 +728,8 @@
       const q = m.type === 'sale' ? '−' + units(m) : m.type === 'restock' ? '+' + m.qty : m.type === 'undo' ? '+1' : m.type === 'adjust' ? (m.qty > 0 ? '+' : '') + m.qty : m.type === 'create' ? '+' + m.qty : '';
       html += '<div class="mv' + (m.undone ? ' undone' : '') + (state.animate ? ' enter' : '') + '" style="--i:' + Math.min(i, 12) + '">' +
         '<span class="pill ' + t.cls + '">' + t.label + '</span>' +
-        '<div class="mv-main"><b>' + esc(m.productName) + '</b><span class="muted">' + (m.variant ? esc(m.variant) + ' · ' : '') + 'Ref. ' + esc(m.code) + (m.customerName ? ' · Cliente: ' + esc(m.customerName) : '') + (m.discount || m.promoPct ? ' · −' + (m.discount || 0) + '%' + (m.promoPct ? ' +promo ' + m.promoPct + '%' : '') : '') + '</span></div>' +
+        '<div class="mv-main"><b>' + esc(m.productName) + '</b>' + saleWho(m) +
+          '<span class="muted">' + (m.variant ? esc(m.variant) + ' · ' : '') + 'Ref. ' + esc(m.code) + (m.discount || m.promoPct ? ' · −' + (m.discount || 0) + '%' + (m.promoPct ? ' +promo ' + m.promoPct + '%' : '') : '') + '</span></div>' +
         '<span class="mv-cat">' + icon(catKey(m.category)) + esc(m.category) + '</span>' +
         '<span class="mv-user">' + icon('user') + esc(m.user) + '</span>' +
         '<span class="mv-qty">' + q + '</span>' +
@@ -721,10 +742,10 @@
   }
 
   function exportCSV() {
-    const rows = [['Fecha', 'Hora', 'Tipo', 'Producto', 'Referencia', 'Variante', 'Categoría', 'Usuario', 'Cantidad', 'Precio unidad', 'Deshecha', 'Cliente', 'Descuento %']];
+    const rows = [['Fecha', 'Hora', 'Tipo', 'Producto', 'Referencia', 'Variante', 'Categoría', 'Usuario', 'Cantidad', 'Precio unidad', 'Deshecha', 'Cliente', 'Teléfono', 'Email', 'Descuento %']];
     filteredMovements().forEach(m => {
       const d = new Date(m.at);
-      rows.push([d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES'), (TYPES[m.type] || {}).label || m.type, m.productName, m.code, m.variant, m.category, m.user, m.qty, String(m.price).replace('.', ','), m.undone ? 'Sí' : '', m.customerName || '', m.discount || 0]);
+      rows.push([d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES'), (TYPES[m.type] || {}).label || m.type, m.productName, m.code, m.variant, m.category, m.user, m.qty, String(m.price).replace('.', ','), m.undone ? 'Sí' : '', m.customerName || '', (customerById(m.customerId) || {}).phone || '', (customerById(m.customerId) || {}).email || '', m.discount || 0]);
     });
     const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a');
@@ -737,6 +758,37 @@
   /* =========================================================
      RESUMEN
      ========================================================= */
+  // Por cliente: sus datos y lo que compró en cada fecha
+  function renderCustSummary(root) {
+    const by = {};
+    state.orders.forEach(o => { (by[o.customerId] || (by[o.customerId] = { id: o.customerId, name: o.customerName, orders: [] })).orders.push(o); });
+    const list = Object.values(by).sort((a, b) => b.orders[0].at - a.orders[0].at);
+    const box = $('#custSum', root), q = $('[data-mi="filter"]', root);
+    $('#custSumNote', root).textContent = list.length
+      ? list.length + (list.length === 1 ? ' cliente con compras' : ' clientes con compras') + ' · el más reciente primero' + (state.orders.length >= 300 ? ' · se muestran las últimas 300 compras' : '')
+      : '';
+    if (!list.length) { box.innerHTML = '<p class="muted pad">Todavía no hay compras asociadas a clientes. Aparecerán aquí al finalizar una compra desde el carrito.</p>'; return; }
+    const open = new Set($$('#custSum .cs[open]', root).map(d => d.dataset.id));
+    box.innerHTML = list.map(c => {
+      const cu = customerById(c.id), name = cu ? cu.name : c.name;
+      const total = c.orders.reduce((a, o) => a + o.total, 0), uds = c.orders.reduce((a, o) => a + (o.units || 0), 0);
+      const days = [];
+      c.orders.forEach(o => {   // las compras llegan de la más reciente a la más antigua
+        const k = ymd(o.at); let d = days.find(x => x.k === k);
+        if (!d) { d = { k, at: o.at, items: [], total: 0 }; days.push(d); }
+        d.total += o.total;
+        (o.lines || []).forEach(l => { const it = d.items.find(x => x.id === l.productId && x.var === (l.variant || '')); if (it) it.qty += l.qty; else d.items.push({ id: l.productId, name: l.name, var: l.variant || '', qty: l.qty }); });
+      });
+      return '<details class="cs" data-id="' + esc(c.id) + '"' + (open.has(c.id) || list.length === 1 ? ' open' : '') + ' data-text="' + esc(((name || '') + ' ' + (cu ? cu.phone + ' ' + cu.email : '')).toLowerCase()) + '">' +
+        '<summary><span class="avatar sm">' + esc((name || '?').charAt(0).toUpperCase()) + '</span>' +
+          '<div class="cs-main"><b>' + esc(name) + '</b><span class="cs-contact">' + (cu ? (contactHTML(c.id) || '<span class="muted">Sin teléfono ni correo</span>') : '<span class="muted">Cuenta eliminada</span>') + '</span></div>' +
+          '<div class="cs-tot"><b>' + money(total) + '</b><span class="muted">' + c.orders.length + (c.orders.length === 1 ? ' compra' : ' compras') + ' · ' + uds + (uds === 1 ? ' ud.' : ' uds.') + '</span></div></summary>' +
+        '<div class="cs-body">' + days.map(d => '<p class="cs-day"><b>El día ' + fmtDay(d.at) + '</b> compró ' + esc(listJoin(d.items.map(i => i.name + (i.var ? ' (' + i.var + ')' : '') + (i.qty > 1 ? ' ×' + i.qty : '')))) + ' <span class="muted">· ' + money(d.total) + '</span></p>').join('') +
+          (cu ? '<button class="btn soft" type="button" data-m="custedit" data-id="' + esc(c.id) + '">' + icon('edit') + 'Editar teléfono / correo</button>' : '') + '</div></details>';
+    }).join('');
+    if (q && q.value) q.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   function renderSummary() {
     const root = $('#view-summary');
     if (!$('#sumGrid', root)) {
@@ -754,7 +806,10 @@
             '<button type="button" class="chip" data-r="today">Hoy</button><button type="button" class="chip" data-r="week">7 días</button><button type="button" class="chip" data-r="month">Mes</button><button type="button" class="chip" data-r="all">Todo</button></div></div><div id="byUser"></div></section>' +
           '<section class="panel"><div class="panel-head"><h3 class="serif">Productos agotados</h3></div><div id="outList"></div></section>' +
           '<section class="panel"><div class="panel-head"><h3 class="serif">Últimas unidades</h3></div><div id="lowList"></div></section>' +
-        '</div>';
+        '</div>' +
+        '<section class="panel panel-wide"><div class="panel-head"><h3 class="serif">Compras por cliente</h3>' +
+          '<label class="search sm">' + icon('search') + '<input type="search" data-mi="filter" data-target="custSum" placeholder="Buscar cliente, teléfono o correo…" autocomplete="off"></label></div>' +
+          '<p class="muted small" id="custSumNote"></p><div id="custSum"></div></section>';
       $('#rangeChips', root).addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { state.range = b.dataset.r; renderSummary(); } });
     }
     $('#truncSum', root).innerHTML = truncHTML();
@@ -779,6 +834,7 @@
       '<div class="bar"><i style="width:' + Math.max(4, a.n / max * 100) + '%;--d:' + (i * 70) + 'ms"></i></div></div></div>').join('')
       : '<p class="muted pad">Todavía no hay ventas en este periodo.</p>';
 
+    renderCustSummary(root);
     $('#outList').innerHTML = out.length ? out.map(p => {
       const so = p.soldOutBy || p.lastSale;
       return '<div class="li"><span class="dot out"></span><div class="li-main"><b>' + esc(p.name) + '</b><span class="muted">' + (p.variant ? esc(p.variant) + ' · ' : '') + 'Ref. ' + esc(p.code) + '</span></div><span class="li-side">' + (so ? 'Vendió <b>' + esc(so.user) + '</b><br>' + fmtDT(so.at) : '—') + '</span></div>';
@@ -866,7 +922,7 @@
   Object.assign(MasarteUI, {
     state, store, cfg, P, $, $$, esc, money, icon, toast, errMsg, fmtDT, catKey, CATS, busy, lsGet, lsSet,
     openSheet, closeSheet, tryCloseSheet, confirmBox, countUp, reduceMotion,
-    avail, customerById, cartOf, promoById, productsMap, cartUnits, statusOf, byId,
+    avail, customerById, contactHTML, cartOf, promoById, productsMap, cartUnits, statusOf, byId,
     renderHeader, renderAll, setView, openProductForm,
     setSheetGuard: fn => { sheetGuard = fn; }
   });

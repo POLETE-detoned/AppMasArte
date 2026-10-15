@@ -33,20 +33,23 @@
     U.renderHeader(); U.renderAll();
   }
 
-  function openCustomerSheet(after) {
+  function openCustomerSheet(after, editId) {
+    const ex = editId ? customerById(editId) : null;
     const s = openSheet(
-      '<div class="sheet-head"><h3 class="serif">Nueva cuenta de cliente</h3><button class="icon-btn" data-close type="button" aria-label="Cerrar">' + icon('close') + '</button></div>' +
-      '<form id="cf" novalidate><label class="field"><span>Nombre *</span><input id="c_name" type="text" maxlength="60" placeholder="Nombre del cliente" required></label>' +
-      '<div class="row2"><label class="field"><span>Teléfono</span><input id="c_phone" type="tel" maxlength="30" inputmode="tel"></label>' +
-      '<label class="field"><span>Email</span><input id="c_mail" type="email" maxlength="80"></label></div>' +
+      '<div class="sheet-head"><h3 class="serif">' + (ex ? 'Datos del cliente' : 'Nueva cuenta de cliente') + '</h3><button class="icon-btn" data-close type="button" aria-label="Cerrar">' + icon('close') + '</button></div>' +
+      '<form id="cf" novalidate><label class="field"><span>Nombre *</span><input id="c_name" type="text" maxlength="60" placeholder="Nombre del cliente" value="' + esc(ex ? ex.name : '') + '" required></label>' +
+      '<div class="row2"><label class="field"><span>Teléfono</span><input id="c_phone" type="tel" maxlength="30" inputmode="tel" value="' + esc(ex ? ex.phone : '') + '"></label>' +
+      '<label class="field"><span>Email</span><input id="c_mail" type="email" maxlength="80" value="' + esc(ex ? ex.email : '') + '"></label></div>' +
       '<p class="form-error" id="cfErr" role="alert"></p>' +
-      '<div class="sheet-actions"><button class="btn ghost" data-close type="button">Cancelar</button><button class="btn primary" type="submit">Crear cuenta</button></div></form>', 'sheet-sm');
+      '<div class="sheet-actions"><button class="btn ghost" data-close type="button">Cancelar</button><button class="btn primary" type="submit">' + (ex ? 'Guardar' : 'Crear cuenta') + '</button></div></form>', 'sheet-sm');
     s.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeSheet(); });
     $('#cf', s).addEventListener('submit', async e => {
       e.preventDefault();
       const btn = $('button[type=submit]', s); btn.disabled = true;
       try {
-        const id = await store.addCustomer({ name: $('#c_name', s).value, phone: $('#c_phone', s).value, email: $('#c_mail', s).value }, state.user);
+        const f = { name: $('#c_name', s).value, phone: $('#c_phone', s).value, email: $('#c_mail', s).value };
+        if (ex) { await store.updateCustomer(ex.id, f, state.user); closeSheet(); toast('Datos del cliente guardados', { type: 'ok' }); U.renderAll(); return; }
+        const id = await store.addCustomer(f, state.user);
         closeSheet(); toast('Cuenta creada', { type: 'ok' });
         state.customerId = id; lsSet('masarte.customer', id);
         U.renderHeader(); U.renderAll();
@@ -292,7 +295,7 @@
     if (!o.length) return '<div class="empty small">' + icon('ventas', 'big') + '<p class="muted">Todavía no hay compras finalizadas.</p></div>';
     const total = o.reduce((a, x) => a + x.total, 0), units = o.reduce((a, x) => a + (x.units || 0), 0);
     return '<p class="muted pad">' + plural(o.length, 'compra', 'compras') + ' · ' + plural(units, 'unidad', 'unidades') + ' · <b>' + money(total) + '</b> facturados' + (o.length >= 300 ? ' (últimas 300)' : '') + '</p>' +
-      '<div class="atable">' + o.map(x => '<details class="ord"><summary><div class="arow-main"><b>' + esc(x.customerName) + '</b><span class="muted">' + fmtDT(x.at) + ' · atendió ' + esc(x.user) + (x.promo ? ' · promo «' + esc(x.promo.name) + '»' : '') + '</span></div>' +
+      '<div class="atable">' + o.map(x => '<details class="ord"><summary><div class="arow-main"><b>' + esc(x.customerName) + '</b>' + (U.contactHTML(x.customerId) ? '<span class="muted contact">' + U.contactHTML(x.customerId) + '</span>' : '') + '<span class="muted">' + fmtDT(x.at) + ' · atendió ' + esc(x.user) + (x.promo ? ' · promo «' + esc(x.promo.name) + '»' : '') + '</span></div>' +
         '<div class="arow-side"><b>' + money(x.total) + '</b><span class="muted small">' + plural(x.units || 0, 'ud.', 'uds.') + (x.saving > 0 ? ' · ahorro ' + money(x.saving) : '') + '</span></div></summary>' +
         '<div class="ord-lines">' + (x.lines || []).map(l => '<div class="sum-l"><div><b>' + esc(l.name) + '</b><span class="muted">' + (l.variant ? esc(l.variant) + ' · ' : '') + 'Ref. ' + esc(l.code) + ' · ' + l.qty + ' × ' + money(l.unitFinal) +
           (l.discount ? ' · dto. ' + l.discount + '%' : '') + (l.promoPct ? ' · promo ' + l.promoPct + '%' : '') + ' <s>' + money(l.listPrice) + '</s></span></div><b>' + money(l.lineTotal) + '</b></div>').join('') + '</div></details>').join('') + '</div>';
@@ -390,6 +393,7 @@
      ========================================================= */
   const H = {
     newcust: () => openCustomerSheet(),
+    custedit: el => openCustomerSheet(null, el.dataset.id),
     shopcat: el => { S.cat = el.dataset.c; state.animate = true; renderShop(); },
     togdisc: el => { const id = el.closest('.scard').dataset.id; S.openDisc.has(id) ? S.openDisc.delete(id) : S.openDisc.add(id); repaintCard(id); },
     disc: el => { const id = el.closest('.scard').dataset.id; S.disc[id] = Number(el.dataset.d); repaintCard(id); },
