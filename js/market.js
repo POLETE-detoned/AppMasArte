@@ -440,6 +440,7 @@
   document.addEventListener('change', e => { const el = e.target.closest('[data-mc]'); if (el && HC[el.dataset.mc]) HC[el.dataset.mc](el); });
   document.addEventListener('input', e => { const el = e.target.closest('[data-mi="filter"]'); if (el) applyFilter(el); });
 
+  U.guardAdmin = guardAdmin;
   U.views.shop = { render: renderShop };
   U.views.cart = { render: renderCart };
   U.views.admin = { render: renderAdmin, guard: guardAdmin };

@@ -2,6 +2,44 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ────────────────────────────────────────────────────────────
+    // ADMINISTRADORES (acceso a datos personales de clientes)
+    // Sustituye los correos de ejemplo por los de las personas autorizadas.
+    // Deben ser cuentas creadas en Firebase → Authentication → Usuarios
+    // (método Correo electrónico/Contraseña).
+    // ────────────────────────────────────────────────────────────
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email in [
+          'TU_CORREO@ejemplo.com'
+        ];
+    }
+
+    // Solicitudes de estilismo (datos personales):
+    //  · CUALQUIER visitante puede ENVIAR una solicitud nueva, con los campos y límites exactos del formulario.
+    //  · SOLO los administradores pueden leerlas, editarlas o borrarlas.
+    match /styling_requests/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'description', 'status', 'source', 'consent', 'consentAt', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'email', 'phone', 'description', 'status', 'source', 'consent', 'consentAt', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 120
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5 && request.resource.data.email.size() <= 120
+        && request.resource.data.email.matches('.+@.+\\..+')
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 6 && request.resource.data.phone.size() <= 30
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 10 && request.resource.data.description.size() <= 3000
+        && request.resource.data.status == 'pending'
+        && request.resource.data.source in ['web', 'tienda']
+        && request.resource.data.consent == true
+        && request.resource.data.consentAt == request.time
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+
     // Solo pueden leer/escribir las sesiones de la app (inicio de sesión anónimo).
     match /products/{id} {
       allow read: if request.auth != null;

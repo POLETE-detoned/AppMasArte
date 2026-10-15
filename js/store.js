@@ -210,6 +210,9 @@
       carts: data.carts.slice(), orders: data.orders.slice(), promos: data.promos.slice()
     })); };
     const setStatus = s => statusCb && statusCb(s);
+    let readyRes, readyRej;
+    const initDone = new Promise((res, rej) => { readyRes = res; readyRej = rej; });
+    initDone.catch(() => {});   // evita avisos si nadie lo espera
     const col = n => db.collection(n);
     const docs = snap => snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const byId = (arr, id) => arr.find(x => x.id === id) || null;
@@ -272,17 +275,24 @@
 
     const api = {
       mode: 'firebase',
+      ready: initDone,
       loadMoreMovements() { if (!db) return; movLimit += 1500; subscribeMovements(); },
       onStatus(cb) { statusCb = cb; },
       onChange(cb) { listener = cb; },
-      async init() {
+      init() { return api._init().catch(e => { readyRej(e); throw e; }); },
+      async _init() {
         const v = '10.12.2';
         const base = 'https://www.gstatic.com/firebasejs/' + v + '/';
         await loadScript(base + 'firebase-app-compat.js');
         await Promise.all([loadScript(base + 'firebase-auth-compat.js'), loadScript(base + 'firebase-firestore-compat.js')]);
         firebase.initializeApp(fb);
-        try { await firebase.auth().signInAnonymously(); }
-        catch (e) { throw new Error('No se pudo iniciar sesión anónima en Firebase. Actívala en Authentication → Método de acceso → Anónimo. (' + e.code + ')'); }
+        // Si ya hay una sesión (p. ej. un administrador con correo y contraseña), se respeta; si no, sesión anónima
+        const auth = firebase.auth();
+        const current = await new Promise(res => { const un = auth.onAuthStateChanged(u => { un(); res(u); }); });
+        if (!current) {
+          try { await auth.signInAnonymously(); }
+          catch (e) { throw new Error('No se pudo iniciar sesión anónima en Firebase. Actívala en Authentication → Método de acceso → Anónimo. (' + e.code + ')'); }
+        }
         db = firebase.firestore();
         try { await db.enablePersistence({ synchronizeTabs: true }); } catch (e) { /* no crítico */ }
 
@@ -296,6 +306,7 @@
         listen('orders', col('orders').orderBy('at', 'desc').limit(300));
         listen('promos', col('promos'));
         subscribeMovements();
+        readyRes();
       },
 
       /* ----- Inventario ----- */

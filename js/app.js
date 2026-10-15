@@ -55,6 +55,7 @@
     admin: '<path d="M12 3l7 3v5.5c0 4.2-2.8 7.4-7 9-4.2-1.6-7-4.8-7-9V6z"/><path d="M9.2 12l2 2 3.8-4"/>',
     phone: '<path d="M5 4.5h3.5l1.7 4.2-2.2 1.4a11 11 0 0 0 5.9 5.9l1.4-2.2 4.2 1.7V19a1.5 1.5 0 0 1-1.6 1.5C10.9 20 4 13.1 3.5 6.1A1.5 1.5 0 0 1 5 4.5z"/>',
     mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/><path d="M4 7.5l8 6 8-6"/>',
+    style: '<path d="M12 3.5l1.8 4.6 4.7.4-3.6 3.1 1.1 4.6L12 13.7 8 16.2l1.1-4.6L5.5 8.5l4.7-.4z"/><path d="M5 19.5h14"/>',
     tag: '<path d="M3.5 12.2V4.5h7.7l9 9a1.6 1.6 0 0 1 0 2.3l-5.4 5.4a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8" cy="9" r="1.3"/>',
     inv: '<path d="M4 8.5L12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5l8 4.5 8-4.5M12 13v7"/>',
     ventas: '<path d="M6 4h12v16l-2.2-1.5L13.6 20 12 18.5 10.4 20l-2.2-1.5L6 20z"/><path d="M9 8.5h6M9 12h6"/>',
@@ -300,11 +301,12 @@
      CABECERA Y NAVEGACIÓN
      ========================================================= */
   const VIEWS = [
-    { id: 'inventory', label: 'Inventario', ic: 'inv' },
+    { id: 'inventory', label: 'Inventario', short: 'Stock', ic: 'inv' },
     { id: 'shop', label: 'Tienda', ic: 'shop' },
     { id: 'cart', label: 'Carrito', ic: 'cart', badge: true },
     { id: 'sales', label: 'Ventas', ic: 'ventas' },
     { id: 'summary', label: 'Resumen', ic: 'resumen' },
+    { id: 'styling', label: 'Estilismos', ic: 'style' },
     { id: 'admin', label: 'Admin', ic: 'admin' }
   ];
   function renderHeader() {
@@ -312,9 +314,9 @@
     $('#brandTag').textContent = cfg.tagline || '';
     const initial = (state.user || '?').trim().charAt(0).toUpperCase();
     $('#userChip').innerHTML = '<span class="avatar">' + esc(initial) + '</span><span class="u-name">' + esc(state.user) + '</span><span class="u-change">Cambiar</span>';
-    const tabs = VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '" title="' + v.label + '">' + icon(v.ic) + '<span>' + v.label + '</span>' + (v.badge && cartUnits(state.customerId) ? '<em class="tab-n">' + cartUnits(state.customerId) + '</em>' : '') + '</button>').join('');
-    $('#tabsTop').innerHTML = tabs;
-    $('#tabsBottom').innerHTML = tabs;
+    const tabsHTML = short => VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '" title="' + v.label + '">' + icon(v.ic) + '<span>' + (short && v.short || v.label) + '</span>' + (v.badge && cartUnits(state.customerId) ? '<em class="tab-n">' + cartUnits(state.customerId) + '</em>' : '') + '</button>').join('');
+    $('#tabsTop').innerHTML = tabsHTML(false);
+    $('#tabsBottom').innerHTML = tabsHTML(true);
     $('#fab').hidden = state.view !== 'inventory';
   }
   async function setView(v) {
