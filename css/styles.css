@@ -511,3 +511,21 @@ main { padding: 22px var(--pad) 120px; max-width: 1320px; margin: 0 auto; }
   .tabs-top .tab:not(.active) span { display: none; }
   .tabs-top .tab { padding: 0 13px; }
 }
+
+/* ---------- Clientes en ventas y resumen ---------- */
+.ct { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.ct .ic { width: 14px; height: 14px; color: var(--sage-d); }
+.mv-main .who { white-space: normal; font-size: 14px; color: var(--ink); line-height: 1.35; margin: 1px 0; }
+.mv-main .who b { color: var(--terra-d); }
+.panel-wide { margin-top: 18px; }
+.cs { border-top: 1px solid var(--line); } .cs:first-of-type { border-top: 0; }
+.cs summary { list-style: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 2px; cursor: pointer; min-height: 60px; }
+.cs summary::-webkit-details-marker { display: none; }
+.cs-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; } .cs-main > b { font-family: var(--serif); font-size: 21px; line-height: 1.1; }
+.cs-contact { display: flex; flex-wrap: wrap; row-gap: 2px; font-size: 13px; }
+.cs-tot { text-align: right; display: flex; flex-direction: column; } .cs-tot b { font-family: var(--serif); font-size: 22px; line-height: 1.1; } .cs-tot span { font-size: 12.5px; }
+.cs-body { padding: 0 2px 14px 46px; display: grid; gap: 8px; justify-items: start; }
+.cs-day { margin: 0; font-size: 14.5px; line-height: 1.45; border-left: 3px solid var(--sage-l); padding-left: 12px; }
+.cs[hidden] { display: none; }
+.contact { margin: 1px 0; }
+@media (max-width: 560px) { .cs summary { grid-template-columns: auto minmax(0, 1fr); } .cs-tot { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: baseline; padding-left: 46px; } .cs-body { padding-left: 4px; } }
