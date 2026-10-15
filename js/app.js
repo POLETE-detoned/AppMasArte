@@ -77,12 +77,14 @@
     user: lsGet('masarte.user', ''),
     view: 'inventory',
     cat: 'all', q: '', status: 'all',
-    products: [], movements: [], loaded: false,
+    products: [], movements: [], loaded: false, truncated: false,
     sf: { user: '', cat: '', type: '', from: '', to: '', limit: 80 },
     range: 'today',
     animate: true, changed: new Set(), online: true
   };
   const busy = new Set();
+  const truncHTML = () => (state.truncated
+    ? '<div class="notice"><span>Se muestran solo los últimos <b>' + state.movements.length + '</b> movimientos. El resumen, los filtros y la exportación cuentan solo esos.</span><button type="button" class="btn soft" data-loadmore>Cargar más</button></div>' : '');
   let prevMap = new Map();
 
   const statusOf = p => ((p.stock || 0) <= 0 ? 'out' : p.stock <= LOW ? 'low' : 'ok');
@@ -129,8 +131,35 @@
   /* =========================================================
      OVERLAYS (hojas modales)
      ========================================================= */
+  const cssEsc = v => (window.CSS && CSS.escape ? CSS.escape(v) : v);
+  const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  let sheetGuard = null, sheetReturn = null, confirmReturn = null;
+
+  // Recuerda qué elemento tenía el foco para devolvérselo al cerrar (las tarjetas se repintan, así que se guarda un selector)
+  function focusMemo() {
+    const el = document.activeElement;
+    if (!el || el === document.body) return null;
+    const card = el.closest && el.closest('.card'), act = el.dataset && el.dataset.act;
+    return { el, sel: card && act ? '.card[data-id="' + cssEsc(card.dataset.id) + '"] [data-act="' + act + '"]' : null };
+  }
+  function focusBack(m) {
+    if (!m) return;
+    const t = m.el.isConnected ? m.el : (m.sel && $(m.sel));
+    if (t && t.focus) t.focus({ preventScroll: true });
+  }
+  // Mantiene el tabulador dentro de la hoja abierta
+  function trapTab(root, e) {
+    const f = $$(FOCUSABLE, root).filter(x => x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1], cur = document.activeElement;
+    if (!root.contains(cur)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && cur === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+  }
+
   function openSheet(html, cls) {
     const root = $('#sheetRoot');
+    sheetReturn = focusMemo(); sheetGuard = null;
     root.innerHTML = '<div class="sheet ' + (cls || '') + '" role="dialog" aria-modal="true">' + html + '</div>';
     root.hidden = false;
     requestAnimationFrame(() => root.classList.add('open'));
@@ -138,24 +167,43 @@
     return $('.sheet', root);
   }
   function closeSheet() {
-    const root = $('#sheetRoot');
+    const root = $('#sheetRoot'), back = sheetReturn;
+    sheetGuard = null; sheetReturn = null;
     root.classList.remove('open');
     document.body.classList.remove('noscroll');
     setTimeout(() => { if (!root.classList.contains('open')) { root.hidden = true; root.innerHTML = ''; } }, 260);
+    focusBack(back);
   }
-  $('#sheetRoot').addEventListener('mousedown', e => { if (e.target.id === 'sheetRoot') closeSheet(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#confirmRoot').hidden) closeConfirm(false); else if (!$('#sheetRoot').hidden) closeSheet(); } });
+  // Cierre "del usuario" (fuera, Escape, Cancelar): pide confirmación si hay cambios sin guardar
+  async function tryCloseSheet() {
+    if (sheetGuard && sheetGuard()) {
+      const ok = await confirmBox({ title: '¿Descartar los cambios?', text: 'Has modificado el producto y todavía no lo has guardado.', ok: 'Descartar', danger: true });
+      if (!ok) return;
+    }
+    closeSheet();
+  }
+  $('#sheetRoot').addEventListener('mousedown', e => { if (e.target.id === 'sheetRoot') tryCloseSheet(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (!$('#confirmRoot').hidden) closeConfirm(false); else if (!$('#sheetRoot').hidden) tryCloseSheet(); }
+    else if (e.key === 'Tab') {
+      if (!$('#confirmRoot').hidden) trapTab($('#confirmRoot'), e);
+      else if (!$('#sheetRoot').hidden) trapTab($('#sheetRoot'), e);
+    }
+  });
 
   let confirmResolve = null;
   function closeConfirm(v) {
-    const root = $('#confirmRoot');
+    const root = $('#confirmRoot'), back = confirmReturn;
+    confirmReturn = null;
     root.classList.remove('open');
     setTimeout(() => { root.hidden = true; root.innerHTML = ''; }, 220);
     if (confirmResolve) { const r = confirmResolve; confirmResolve = null; r(v); }
+    focusBack(back);
   }
   function confirmBox(o) {
     return new Promise(res => {
       confirmResolve = res;
+      confirmReturn = focusMemo();
       const root = $('#confirmRoot');
       root.innerHTML = '<div class="sheet sheet-sm" role="alertdialog" aria-modal="true"><h3 class="serif">' + esc(o.title) + '</h3><p class="muted">' + o.text + '</p>' +
         '<div class="sheet-actions"><button class="btn ghost" data-v="0" type="button">Cancelar</button><button class="btn ' + (o.danger ? 'danger' : 'primary') + '" data-v="1" type="button">' + esc(o.ok || 'Aceptar') + '</button></div></div>';
@@ -248,6 +296,7 @@
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-view]');
     if (t) setView(t.dataset.view);
+    if (e.target.closest('[data-loadmore]') && store.loadMoreMovements) { store.loadMoreMovements(); toast('Cargando más movimientos…'); }
   });
   $('#userChip').addEventListener('click', logout);
   $('#fab').addEventListener('click', () => openProductForm(null));
@@ -426,17 +475,18 @@
     const s = openSheet(
       '<div class="sheet-head"><h3 class="serif">Reponer stock</h3><button class="icon-btn" data-close type="button" aria-label="Cerrar">' + icon('close') + '</button></div>' +
       '<p class="muted"><b>' + esc(p.name) + '</b>' + (p.variant ? ' · ' + esc(p.variant) : '') + '<br>Ahora hay ' + p.stock + ' ' + (p.stock === 1 ? 'unidad' : 'unidades') + '.</p>' +
-      '<div class="stepper"><button type="button" data-step="-1" aria-label="Menos">−</button><input id="rsQty" type="number" min="1" step="1" value="5" inputmode="numeric"><button type="button" data-step="1" aria-label="Más">+</button></div>' +
+      '<form id="rsForm" novalidate><div class="stepper"><button type="button" data-step="-1" aria-label="Menos">−</button><input id="rsQty" type="number" min="1" step="1" value="5" inputmode="numeric"><button type="button" data-step="1" aria-label="Más">+</button></div>' +
       '<div class="chips center">' + [1, 5, 10, 20].map(n => '<button type="button" class="chip" data-add="' + n + '">+' + n + '</button>').join('') + '</div>' +
       '<p class="form-error" id="rsErr"></p>' +
-      '<div class="sheet-actions"><button class="btn ghost" data-close type="button">Cancelar</button><button class="btn primary" id="rsOk" type="button">Añadir al stock</button></div>', 'sheet-sm');
+      '<div class="sheet-actions"><button class="btn ghost" data-close type="button">Cancelar</button><button class="btn primary" id="rsOk" type="submit">Añadir al stock</button></div></form>', 'sheet-sm');
     const qty = $('#rsQty', s);
     s.addEventListener('click', e => {
       if (e.target.closest('[data-close]')) return closeSheet();
       const st = e.target.closest('[data-step]'); if (st) qty.value = Math.max(1, (parseInt(qty.value, 10) || 0) + Number(st.dataset.step));
       const ad = e.target.closest('[data-add]'); if (ad) qty.value = (parseInt(qty.value, 10) || 0) + Number(ad.dataset.add);
     });
-    $('#rsOk', s).addEventListener('click', async () => {
+    $('#rsForm', s).addEventListener('submit', async ev => {
+      ev.preventDefault();
       const n = parseInt(qty.value, 10);
       if (!(n > 0)) { $('#rsErr', s).textContent = 'Indica una cantidad mayor que 0.'; return; }
       const btn = $('#rsOk', s); btn.disabled = true;
@@ -506,7 +556,10 @@
       try { photo = await resizeImage(f, 640, 0.74); paint(); } catch (err) { $('#pfErr', s).textContent = errMsg(err); }
     });
     $('#photoRm', s).addEventListener('click', () => { photo = ''; paint(); });
-    s.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeSheet(); });
+    s.addEventListener('click', e => { if (e.target.closest('[data-close]')) tryCloseSheet(); });
+    const readForm = () => JSON.stringify([$('#f_name', s).value, $('#f_code', s).value, $('#f_cat', s).value, $('#f_var', s).value, $('#f_price', s).value, $('#f_stock', s).value, $('#f_notes', s).value, photo]);
+    const initialForm = readForm();
+    sheetGuard = () => readForm() !== initialForm;
 
     const del = $('#pfDel', s);
     if (del) del.addEventListener('click', async () => {
@@ -578,6 +631,7 @@
     if (!$('#sf', root)) {
       root.innerHTML =
         '<div class="section-head"><div><h2 class="serif">Movimientos</h2><p class="muted" id="salesCount"></p></div><button class="btn soft" id="csvBtn" type="button">' + icon('download') + 'Exportar CSV</button></div>' +
+        '<div id="truncSales"></div>' +
         '<div class="filters" id="sf">' +
           '<label class="field sm"><span>Usuario</span><select id="sf_user"></select></label>' +
           '<label class="field sm"><span>Categoría</span><select id="sf_cat"><option value="">Todas</option>' + CATS.map(c => '<option>' + c.id + '</option>').join('') + '</select></label>' +
@@ -600,6 +654,7 @@
       $('#csvBtn', root).addEventListener('click', exportCSV);
       $('#mvList', root).addEventListener('click', e => { if (e.target.closest('[data-more]')) { state.sf.limit += 80; renderSales(); } });
     }
+    $('#truncSales', root).innerHTML = truncHTML();
     // sincronizar controles
     const su = $('#sf_user', root);
     su.innerHTML = '<option value="">Todos</option>' + users.map(u => '<option' + (u === f.user ? ' selected' : '') + ' value="' + esc(u) + '">' + esc(u) + '</option>').join('');
@@ -658,6 +713,7 @@
     if (!$('#sumGrid', root)) {
       root.innerHTML =
         '<div class="section-head"><div><h2 class="serif">Resumen</h2><p class="muted">Un vistazo al estado de la tienda</p></div></div>' +
+        '<div id="truncSum"></div>' +
         '<div class="kpis" id="sumGrid">' +
           '<div class="kpi k-sage"><span class="kpi-l">Ventas de hoy</span><b class="kpi-v" id="k_sales">0</b><span class="kpi-s" id="k_sales_s"></span></div>' +
           '<div class="kpi k-sand"><span class="kpi-l">Ingresos de hoy</span><b class="kpi-v" id="k_rev">0 €</b><span class="kpi-s">IVA incluido</span></div>' +
@@ -672,6 +728,7 @@
         '</div>';
       $('#rangeChips', root).addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { state.range = b.dataset.r; renderSummary(); } });
     }
+    $('#truncSum', root).innerHTML = truncHTML();
     const t0 = startOfDay();
     const sales = realSales();
     const today = sales.filter(m => m.at >= t0);
@@ -727,6 +784,7 @@
     prevMap = nextMap;
     state.products = data.products;
     state.movements = data.movements;
+    state.truncated = !!data.truncated;
     state.loaded = true;
     if (state.user) {
       if (first) state.animate = true;
