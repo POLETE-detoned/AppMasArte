@@ -65,7 +65,7 @@
   const icon = (k, cls) => '<svg class="ic ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[k] || '') + '</svg>';
 
   const TYPES = {
-    sale: { label: 'Venta', cls: 'sale' }, restock: { label: 'Reposición', cls: 'restock' },
+    sale: { label: 'Venta', cls: 'sale' }, restock: { label: 'Compra / reposición', cls: 'restock' },
     adjust: { label: 'Ajuste', cls: 'adjust' }, undo: { label: 'Venta deshecha', cls: 'undo' },
     create: { label: 'Alta', cls: 'create' }, edit: { label: 'Edición', cls: 'edit' }, delete: { label: 'Baja', cls: 'delete' }
   };
@@ -739,7 +739,8 @@
   async function boot() {
     booted = true;
     store.onStatus(s => {
-      if (s.error) banner(s.error);
+      if (s.local) banner('⚠ MODO LOCAL: los datos NO se comparten entre dispositivos ni dependientes. Conecta Firebase en js/config.js (ver README) para sincronizar.');
+      else if (s.error) banner(s.error);
       else if (s.online != null) { banner(''); state.online = s.online && navigator.onLine; }
       setLive();
     });

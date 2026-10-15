@@ -260,7 +260,7 @@ main { padding: 22px var(--pad) 120px; max-width: 1320px; margin: 0 auto; }
 .quick-dates .chip { min-height: 38px; padding: 0 14px; }
 .day { font-family: var(--serif); font-size: 22px; font-weight: 600; text-transform: capitalize; margin: 22px 4px 8px; color: var(--ink-2); }
 .mv-list .day:first-child { margin-top: 4px; }
-.mv { display: grid; grid-template-columns: 112px minmax(0, 2.2fr) 1.1fr 1.1fr 54px 1.3fr; align-items: center; gap: 14px; background: var(--ivory); border-radius: 14px; padding: 12px 16px; margin-bottom: 8px; box-shadow: var(--sh-1); font-size: 14.5px; }
+.mv { display: grid; grid-template-columns: 150px minmax(0, 2.2fr) 1.1fr 1.1fr 54px 1.3fr; align-items: center; gap: 14px; background: var(--ivory); border-radius: 14px; padding: 12px 16px; margin-bottom: 8px; box-shadow: var(--sh-1); font-size: 14.5px; }
 .mv.enter { animation: rise .5s var(--ease) both; animation-delay: calc(var(--i) * 35ms); }
 .mv-main { display: flex; flex-direction: column; min-width: 0; } .mv-main b, .mv-main span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mv-main span { font-size: 13px; }
 .mv-cat, .mv-user { display: flex; align-items: center; gap: 7px; color: var(--ink-2); min-width: 0; } .mv-cat .ic, .mv-user .ic { width: 17px; height: 17px; color: var(--sage-d); }
