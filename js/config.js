@@ -13,9 +13,6 @@ window.MASARTE_CONFIG = {
   // PIN que deben teclear los dependientes al entrar. Déjalo vacío ("") para no pedirlo.
   shopPin: "2010",
 
-  // PIN del panel de Administración (carritos, compras, promociones, reservas y stock). Cámbialo.
-  adminPin: "9090",
-
   // Minutos que una unidad queda reservada en un carrito antes de volver a estar disponible.
   reservationMinutes: 30,
 

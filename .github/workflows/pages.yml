@@ -21,10 +21,17 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Preparar sitio
+      - name: Preparar sitio (minificado)
         run: |
-          mkdir _site
-          cp -r index.html estilismos.html css js img _site/
+          mkdir -p _site/js _site/css
+          cp index.html estilismos.html manifest.webmanifest sw.js _site/
+          cp -r img _site/
+          # Minificar JS y CSS reduce lo que se descarga; si algo fallara, se publican los originales
+          npx --yes esbuild@0.25.5 js/*.js --minify --outdir=_site/js --log-level=warning || cp js/*.js _site/js/
+          npx --yes esbuild@0.25.5 sw.js --minify --outfile=_site/sw.js --log-level=warning || true
+          npx --yes esbuild@0.25.5 css/styles.css --minify --outfile=_site/css/styles.css --log-level=warning || cp css/styles.css _site/css/
+          # Versión de la caché = commit publicado (así cada despliegue renueva la caché)
+          sed -i "s/__BUILD__/${GITHUB_SHA::8}/" _site/sw.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

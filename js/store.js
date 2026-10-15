@@ -17,6 +17,11 @@
   const P = window.MasartePricing;
   const useFirebase = !!(fb.apiKey && fb.projectId && !/^TU_/.test(fb.apiKey) && !/^TU_/.test(fb.projectId));
 
+  // Se empieza a descargar el SDK de Firebase al abrir la web, mientras la persona escribe su nombre y PIN
+  if (useFirebase) {
+    ['app', 'auth', 'firestore'].forEach(n => { const l = document.createElement('link'); l.rel = 'preload'; l.as = 'script'; l.href = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-' + n + '-compat.js'; document.head.appendChild(l); });
+  }
+
   /* Movimiento (registro de auditoría) */
   const mv = (type, p, user, extra) => Object.assign({
     type, productId: p.id, productName: p.name || '', code: p.code || '', category: p.category || '',

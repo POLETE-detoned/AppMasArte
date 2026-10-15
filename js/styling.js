@@ -52,6 +52,10 @@
       document.head.appendChild(s);
     });
   }
+  // En la página pública se empieza a descargar Firebase en cuanto carga, mientras el cliente rellena el formulario
+  if (useFirebase && !window.MasarteStore) {
+    ['app', 'auth', 'firestore'].forEach(n => { const l = document.createElement('link'); l.rel = 'preload'; l.as = 'script'; l.href = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-' + n + '-compat.js'; document.head.appendChild(l); });
+  }
   let dbPromise = null;
   function ensure() {
     if (dbPromise) return dbPromise;
@@ -60,8 +64,7 @@
       else {
         const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
         if (!window.firebase) await loadScript(base + 'firebase-app-compat.js');
-        if (!firebase.auth) await loadScript(base + 'firebase-auth-compat.js');
-        if (!firebase.firestore) await loadScript(base + 'firebase-firestore-compat.js');
+        await Promise.all([firebase.auth ? 0 : loadScript(base + 'firebase-auth-compat.js'), firebase.firestore ? 0 : loadScript(base + 'firebase-firestore-compat.js')]);
         if (!firebase.apps.length) firebase.initializeApp(fb);
       }
       const auth = firebase.auth();
@@ -111,7 +114,7 @@
 
     // ¿La sesión actual es de administrador?
     isAdmin() {
-      if (!useFirebase) { try { return sessionStorage.getItem('masarte.admin') === '1'; } catch (e) { return false; } }
+      if (!useFirebase) return true;   // modo de prueba: cualquier persona que haya entrado con su nombre y PIN
       const u = window.firebase && firebase.apps && firebase.apps.length && firebase.auth().currentUser;
       return !!(u && !u.isAnonymous && u.providerData.some(p => p.providerId === 'password'));
     },

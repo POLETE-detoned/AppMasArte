@@ -56,6 +56,8 @@
     phone: '<path d="M5 4.5h3.5l1.7 4.2-2.2 1.4a11 11 0 0 0 5.9 5.9l1.4-2.2 4.2 1.7V19a1.5 1.5 0 0 1-1.6 1.5C10.9 20 4 13.1 3.5 6.1A1.5 1.5 0 0 1 5 4.5z"/>',
     mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/><path d="M4 7.5l8 6 8-6"/>',
     style: '<path d="M12 3.5l1.8 4.6 4.7.4-3.6 3.1 1.1 4.6L12 13.7 8 16.2l1.1-4.6L5.5 8.5l4.7-.4z"/><path d="M5 19.5h14"/>',
+    users: '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.2 19.5c.6-3.4 3-5 5.8-5s5.2 1.6 5.8 5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M16.5 14.6c2.3.1 4 1.4 4.5 4.3"/>',
+    back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
     tag: '<path d="M3.5 12.2V4.5h7.7l9 9a1.6 1.6 0 0 1 0 2.3l-5.4 5.4a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8" cy="9" r="1.3"/>',
     inv: '<path d="M4 8.5L12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5l8 4.5 8-4.5M12 13v7"/>',
     ventas: '<path d="M6 4h12v16l-2.2-1.5L13.6 20 12 18.5 10.4 20l-2.2-1.5L6 20z"/><path d="M9 8.5h6M9 12h6"/>',
@@ -89,7 +91,7 @@
     cat: 'all', q: '', status: 'all',
     products: [], movements: [], loaded: false, truncated: false,
     customers: [], carts: [], orders: [], promos: [],
-    customerId: lsGet('masarte.customer', ''), admin: false,
+    buying: '',
     sf: { user: '', cat: '', type: '', from: '', to: '', limit: 80 },
     range: 'today',
     animate: true, changed: new Set(), online: true
@@ -303,29 +305,26 @@
      CABECERA Y NAVEGACIÓN
      ========================================================= */
   const VIEWS = [
-    { id: 'inventory', label: 'Inventario', short: 'Stock', ic: 'inv' },
-    { id: 'shop', label: 'Tienda', ic: 'shop' },
-    { id: 'cart', label: 'Carrito', ic: 'cart', badge: true },
+    { id: 'inventory', label: 'Inventario', short: 'Inventario', ic: 'inv' },
+    { id: 'customers', label: 'Clientes', ic: 'users', badge: true },
     { id: 'sales', label: 'Ventas', ic: 'ventas' },
-    { id: 'summary', label: 'Resumen', ic: 'resumen' },
-    { id: 'styling', label: 'Estilismos', ic: 'style' },
-    { id: 'admin', label: 'Admin', ic: 'admin' }
+    { id: 'styling', label: 'Estilismos', ic: 'style' }
   ];
+  const openCarts = () => state.carts.filter(c => (c.items || []).length).length;
   function renderHeader() {
     $('#brandName').textContent = cfg.storeName || '+Arte Home';
     $('#brandTag').textContent = cfg.tagline || '';
     const initial = (state.user || '?').trim().charAt(0).toUpperCase();
     $('#userChip').innerHTML = '<span class="avatar">' + esc(initial) + '</span><span class="u-name">' + esc(state.user) + '</span><span class="u-change">Cambiar</span>';
-    const tabsHTML = short => VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '" title="' + v.label + '">' + icon(v.ic) + '<span>' + (short && v.short || v.label) + '</span>' + (v.badge && cartUnits(state.customerId) ? '<em class="tab-n">' + cartUnits(state.customerId) + '</em>' : '') + '</button>').join('');
+    const tabsHTML = short => VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '" title="' + v.label + '">' + icon(v.ic) + '<span>' + (short && v.short || v.label) + '</span>' + (v.badge && openCarts() ? '<em class="tab-n" title="Compras sin terminar">' + openCarts() + '</em>' : '') + '</button>').join('');
     $('#tabsTop').innerHTML = tabsHTML(false);
     $('#tabsBottom').innerHTML = tabsHTML(true);
     $('#fab').hidden = state.view !== 'inventory';
   }
-  async function setView(v) {
-    const ext = MasarteUI.views[v];
-    if (ext && ext.guard && !(await ext.guard())) return;
+  function setView(v) {
     state.view = v; state.animate = true;
     VIEWS.forEach(x => { $('#view-' + x.id).hidden = x.id !== v; });
+    if (v !== 'customers') state.buying = '';
     renderHeader(); renderAll();
     window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
   }
@@ -380,7 +379,7 @@
       '</div>' +
       '<div class="result-line" id="resultLine"></div>' +
       '<div class="grid" id="grid"></div>';
-    $('#q').addEventListener('input', e => { state.q = e.target.value; state.animate = true; renderGrid(); });
+    let qt; $('#q').addEventListener('input', e => { const v = e.target.value; clearTimeout(qt); qt = setTimeout(() => { state.q = v; state.animate = true; renderGrid(); }, 120); });
     $('#statusChips').addEventListener('click', e => {
       const b = e.target.closest('[data-status]'); if (!b) return;
       state.status = b.dataset.status; state.animate = true;
@@ -680,10 +679,22 @@
     const root = $('#view-sales');
     const f = state.sf;
     const users = Array.from(new Set(state.movements.map(m => m.user))).sort((a, b) => a.localeCompare(b, 'es'));
-    if (!$('#sf', root)) {
+    if (!$('#sumGrid', root)) {
       root.innerHTML =
-        '<div class="section-head"><div><h2 class="serif">Movimientos</h2><p class="muted" id="salesCount"></p></div><button class="btn soft" id="csvBtn" type="button">' + icon('download') + 'Exportar CSV</button></div>' +
+        '<div class="section-head"><div><h2 class="serif">Ventas</h2><p class="muted">Lo vendido hoy, quién vende más y todo el historial, en un solo sitio</p></div><button class="btn soft" id="csvBtn" type="button">' + icon('download') + 'Exportar CSV</button></div>' +
         '<div id="truncSales"></div>' +
+        '<div class="kpis" id="sumGrid">' +
+          '<div class="kpi k-sage"><span class="kpi-l">Vendido hoy</span><b class="kpi-v" id="k_sales">0</b><span class="kpi-s" id="k_sales_s"></span></div>' +
+          '<div class="kpi k-sand"><span class="kpi-l">Ingresos de hoy</span><b class="kpi-v" id="k_rev">0 €</b><span class="kpi-s">IVA incluido</span></div>' +
+          '<div class="kpi k-low"><span class="kpi-l">Últimas unidades</span><b class="kpi-v" id="k_low">0</b><span class="kpi-s">productos</span></div>' +
+          '<div class="kpi k-out"><span class="kpi-l">Agotados</span><b class="kpi-v" id="k_out">0</b><span class="kpi-s">productos</span></div>' +
+        '</div>' +
+        '<div class="panels2">' +
+          '<section class="panel"><div class="panel-head"><h3 class="serif">Ventas por dependiente</h3><div class="chips" id="rangeChips">' +
+            '<button type="button" class="chip" data-r="today">Hoy</button><button type="button" class="chip" data-r="week">7 días</button><button type="button" class="chip" data-r="month">Mes</button><button type="button" class="chip" data-r="all">Todo</button></div></div><div id="byUser"></div></section>' +
+          '<section class="panel"><div class="panel-head"><h3 class="serif">Atención al stock</h3></div><div id="stockAlert"></div></section>' +
+        '</div>' +
+        '<section class="panel panel-wide"><div class="panel-head"><div><h3 class="serif">Historial</h3><p class="muted small" id="salesCount" style="margin:0"></p></div></div>' +
         '<div class="filters" id="sf">' +
           '<label class="field sm"><span>Usuario</span><select id="sf_user"></select></label>' +
           '<label class="field sm"><span>Categoría</span><select id="sf_cat"><option value="">Todas</option>' + CATS.map(c => '<option>' + c.id + '</option>').join('') + '</select></label>' +
@@ -691,8 +702,7 @@
           '<label class="field sm"><span>Desde</span><input id="sf_from" type="date"></label>' +
           '<label class="field sm"><span>Hasta</span><input id="sf_to" type="date"></label>' +
           '<div class="chips quick-dates"><button type="button" class="chip" data-q="today">Hoy</button><button type="button" class="chip" data-q="week">7 días</button><button type="button" class="chip" data-q="all">Todo</button></div>' +
-        '</div>' +
-        '<div class="mv-list" id="mvList"></div>';
+        '</div><div class="mv-list" id="mvList"></div></section>';
       const on = (id, key) => $(id, root).addEventListener('change', e => { state.sf[key] = e.target.value; state.sf.limit = 80; state.animate = true; renderSales(); });
       on('#sf_user', 'user'); on('#sf_cat', 'cat'); on('#sf_type', 'type'); on('#sf_from', 'from'); on('#sf_to', 'to');
       $('.quick-dates', root).addEventListener('click', e => {
@@ -705,20 +715,44 @@
       });
       $('#csvBtn', root).addEventListener('click', exportCSV);
       $('#mvList', root).addEventListener('click', e => { if (e.target.closest('[data-more]')) { state.sf.limit += 80; renderSales(); } });
+      $('#rangeChips', root).addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { state.range = b.dataset.r; renderSales(); } });
     }
     $('#truncSales', root).innerHTML = truncHTML();
-    // sincronizar controles
+
+    /* --- resumen: indicadores, ventas por dependiente y stock --- */
+    const t0 = startOfDay(), allSales = realSales(), today = allSales.filter(m => m.at >= t0);
+    const todayUnits = today.reduce((a, m) => a + units(m), 0);
+    countUp($('#k_sales'), todayUnits);
+    $('#k_sales_s').textContent = todayUnits === 1 ? 'unidad vendida' : 'unidades vendidas';
+    countUp($('#k_rev'), today.reduce((a, m) => a + m.price * units(m), 0), money);
+    const out = state.products.filter(p => statusOf(p) === 'out'), low = state.products.filter(p => statusOf(p) === 'low').sort((a, b) => a.stock - b.stock);
+    countUp($('#k_low'), low.length); countUp($('#k_out'), out.length);
+    $$('#rangeChips .chip', root).forEach(c => c.classList.toggle('on', c.dataset.r === state.range));
+    const since = state.range === 'today' ? t0 : state.range === 'week' ? t0 - 6 * 864e5 : state.range === 'month' ? new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() : 0;
+    const agg = {};
+    allSales.filter(m => m.at >= since).forEach(m => { const a = agg[m.user] || (agg[m.user] = { n: 0, rev: 0 }); a.n += units(m); a.rev += m.price * units(m); });
+    const rows = Object.entries(agg).sort((a, b) => b[1].n - a[1].n), mx = rows.length ? rows[0][1].n : 1;
+    $('#byUser', root).innerHTML = rows.length ? rows.map(([u, a], i) =>
+      '<div class="bar-row"><span class="avatar sm">' + esc(u.charAt(0).toUpperCase()) + '</span><div class="bar-main"><div class="bar-top"><b>' + esc(u) + '</b><span>' + a.n + (a.n === 1 ? ' unidad' : ' unidades') + ' · ' + money(a.rev) + '</span></div>' +
+      '<div class="bar"><i style="width:' + Math.max(4, a.n / mx * 100) + '%;--d:' + (i * 70) + 'ms"></i></div></div></div>').join('')
+      : '<p class="muted pad">Todavía no hay ventas en este periodo.</p>';
+    const li = (p, cls, side) => '<div class="li"><span class="dot ' + cls + '"></span><div class="li-main"><b>' + esc(p.name) + '</b><span class="muted">' + (p.variant ? esc(p.variant) + ' · ' : '') + 'Ref. ' + esc(p.code) + '</span></div><span class="li-side">' + side + '</span></div>';
+    $('#stockAlert', root).innerHTML = (out.length || low.length)
+      ? out.map(p => { const so = p.soldOutBy || p.lastSale; return li(p, 'out', '<b>Agotado</b>' + (so ? '<br>Vendió ' + esc(so.user) : '')); }).join('') +
+        low.map(p => li(p, 'low', '<b>' + p.stock + '</b> ' + (p.stock === 1 ? 'unidad' : 'unidades'))).join('')
+      : '<p class="muted pad">Todo con stock suficiente. 🌿</p>';
+
+    /* --- historial --- */
     const su = $('#sf_user', root);
     su.innerHTML = '<option value="">Todos</option>' + users.map(u => '<option' + (u === f.user ? ' selected' : '') + ' value="' + esc(u) + '">' + esc(u) + '</option>').join('');
     $('#sf_cat', root).value = f.cat; $('#sf_type', root).value = f.type; $('#sf_from', root).value = f.from; $('#sf_to', root).value = f.to;
-
     const list = filteredMovements();
     const sales = list.filter(m => m.type === 'sale' && !m.undone);
     const nSales = sales.reduce((a, m) => a + units(m), 0);
     $('#salesCount', root).textContent = list.length + ' movimiento' + (list.length === 1 ? '' : 's') + (nSales ? ' · ' + nSales + (nSales === 1 ? ' unidad vendida' : ' unidades vendidas') + ' · ' + money(sales.reduce((a, m) => a + m.price * units(m), 0)) : '');
     const box = $('#mvList', root);
     if (!state.loaded) { box.innerHTML = '<div class="empty"><div class="spinner"></div></div>'; return; }
-    if (!list.length) { box.innerHTML = '<div class="empty">' + icon('ventas', 'big') + '<h3 class="serif">Sin movimientos</h3><p class="muted">No hay registros con estos filtros.</p></div>'; return; }
+    if (!list.length) { box.innerHTML = '<div class="empty small">' + icon('ventas', 'big') + '<h3 class="serif">Sin movimientos</h3><p class="muted">No hay registros con estos filtros.</p></div>'; return; }
     const shown = list.slice(0, f.limit);
     let day = '', html = '';
     shown.forEach((m, i) => {
@@ -760,146 +794,11 @@
   }
 
   /* =========================================================
-     RESUMEN
-     ========================================================= */
-  // Compras por cliente: tarjeta por cliente con línea de tiempo animada (fecha → productos)
-  const custOpen = new Set(), custPlayed = new Set();
-  let custInit = false;
-  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
-
-  function itemHTML(l, i) {
-    const pr = byId(l.productId), key = catKey(l.category || (pr && pr.category));
-    const thumb = pr && pr.photo ? '<img src="' + esc(pr.photo) + '" alt="" loading="lazy" decoding="async">' : '<div class="ph ph-' + key + '">' + icon(key) + '</div>';
-    const tags = (l.discount === 100 ? '<em class="tagd free">GRATIS</em>' : l.discount ? '<em class="tagd">−' + l.discount + ' %</em>' : '') + (l.promoPct ? '<em class="tagd promo">Promo −' + l.promoPct + ' %</em>' : '');
-    return '<li class="it" style="--j:' + i + '"><div class="it-th">' + thumb + '<span class="it-q">×' + l.qty + '</span></div>' +
-      '<div class="it-main"><b>' + esc(l.name) + '</b>' + (l.variant ? '<span class="muted">' + esc(l.variant) + '</span>' : '') +
-      '<div class="it-price">' + l.qty + ' × ' + (l.unitFinal < l.listPrice ? '<s>' + money(l.listPrice) + '</s> ' : '') + '<b>' + money(l.unitFinal) + '</b>' + tags + '</div></div>' +
-      '<div class="it-tot">' + money(l.lineTotal) + '</div></li>';
-  }
-
-  function dayHTML(d, di) {
-    const dt = new Date(d.at), today = ymd(Date.now()), yest = ymd(Date.now() - 864e5);
-    const rel = d.k === today ? 'Hoy' : d.k === yest ? 'Ayer' : '';
-    const long = cap(dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
-    const all = d.orders.reduce((a, o) => a.concat(o.lines || []), []);
-    const uds = all.reduce((a, l) => a + l.qty, 0), total = d.orders.reduce((a, o) => a + o.total, 0), saving = d.orders.reduce((a, o) => a + (o.saving || 0), 0);
-    const promos = Array.from(new Set(d.orders.filter(o => o.promo).map(o => o.promo.name)));
-    const sentence = 'El día ' + fmtDay(d.at) + ' compró ' + listJoin(all.map(l => l.name + (l.qty > 1 ? ' ×' + l.qty : '')));
-    let n = 0;
-    const blocks = d.orders.map(o => {
-      const lines = (o.lines || []).map(l => itemHTML(l, n++)).join('');
-      return '<div class="ob">' + (d.orders.length > 1 ? '<div class="ob-h"><span>' + icon('bag') + 'Compra de las ' + new Date(o.at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + '</span><b>' + money(o.total) + '</b></div>' : '') + '<ul class="its">' + lines + '</ul></div>';
-    }).join('');
-    return '<li class="dy" style="--d:' + di + '"><div class="d-badge' + (rel === 'Hoy' ? ' today' : '') + '"><b>' + dt.getDate() + '</b><span>' + dt.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '') + '</span><em>' + dt.getFullYear() + '</em></div>' +
-      '<div class="d-card"><div class="d-head"><div><b>' + (rel ? rel + ' · ' : '') + esc(long.split(',')[0]) + '</b><span class="muted">' + esc(long.replace(/^[^,]+, /, '')) + '</span></div>' +
-        '<div class="d-total"><b>' + money(total) + '</b><span>' + uds + (uds === 1 ? ' artículo' : ' artículos') + '</span></div></div>' +
-        '<span class="sr-only">' + esc(sentence) + '</span>' + blocks +
-        (saving > 0 || promos.length ? '<div class="d-foot">' + (saving > 0 ? '<span class="save">Ahorro ' + money(saving) + '</span>' : '') + promos.map(x => '<span class="promo">Promoción «' + esc(x) + '»</span>').join('') + '</div>' : '') +
-      '</div></li>';
-  }
-
-  function renderCustSummary(root) {
-    const by = {};
-    state.orders.forEach(o => { (by[o.customerId] || (by[o.customerId] = { id: o.customerId, name: o.customerName, orders: [] })).orders.push(o); });
-    const list = Object.values(by).sort((a, b) => b.orders[0].at - a.orders[0].at);
-    const box = $('#custSum', root), q = $('[data-mi="filter"]', root);
-    const sum = c => c.orders.reduce((a, o) => a + o.total, 0);
-    const revenue = list.reduce((a, c) => a + sum(c), 0), nOrders = state.orders.length;
-    $('#custKpis', root).innerHTML = list.length
-      ? '<div class="ck"><span>Clientes con compras</span><b>' + list.length + '</b></div><div class="ck"><span>Compras</span><b>' + nOrders + '</b></div>' +
-        '<div class="ck"><span>Facturado</span><b>' + money(revenue) + '</b></div><div class="ck"><span>Ticket medio</span><b>' + money(nOrders ? revenue / nOrders : 0) + '</b></div>' : '';
-    $('#custSumNote', root).textContent = list.length ? 'Toca un cliente para ver qué se llevó y cuándo.' + (state.orders.length >= 300 ? ' Se muestran las últimas 300 compras.' : '') : '';
-    if (!list.length) { box.innerHTML = '<p class="muted pad">Todavía no hay compras asociadas a clientes. Aparecerán aquí al finalizar una compra desde el carrito.</p>'; return; }
-    if (!custInit) { custOpen.add(list[0].id); custInit = true; }
-    const max = Math.max.apply(null, list.map(sum));
-    box.innerHTML = list.map((c, ci) => {
-      const cu = customerById(c.id), name = cu ? cu.name : c.name, total = sum(c), uds = c.orders.reduce((a, o) => a + (o.units || 0), 0);
-      const days = [];
-      c.orders.forEach(o => { const k = ymd(o.at); let d = days.find(x => x.k === k); if (!d) { d = { k, at: o.at, orders: [] }; days.push(d); } d.orders.push(o); });
-      const open = custOpen.has(c.id);
-      return '<article class="cc' + (open ? ' open' : '') + (custPlayed.has(c.id) ? ' played' : '') + '" data-id="' + esc(c.id) + '" style="--ci:' + Math.min(ci, 8) + '" data-text="' + esc(((name || '') + ' ' + (cu ? cu.phone + ' ' + cu.email : '')).toLowerCase()) + '">' +
-        '<button type="button" class="cc-head" aria-expanded="' + open + '"><span class="avatar">' + esc((name || '?').charAt(0).toUpperCase()) + '</span>' +
-          '<span class="cc-who"><b>' + esc(name) + '</b><span class="cs-contact">' + (cu ? (contactHTML(c.id) || '<span class="muted">Sin teléfono ni correo</span>') : '<span class="muted">Cuenta eliminada</span>') + '</span></span>' +
-          '<span class="cc-stats"><span><b data-count="' + total + '" data-money="1">' + money(total) + '</b><em>total</em></span><span><b data-count="' + c.orders.length + '">' + c.orders.length + '</b><em>' + (c.orders.length === 1 ? 'compra' : 'compras') + '</em></span><span><b data-count="' + uds + '">' + uds + '</b><em>' + (uds === 1 ? 'artículo' : 'artículos') + '</em></span></span>' +
-          '<span class="cc-chev" aria-hidden="true"></span><span class="cc-bar" aria-hidden="true"><i style="width:' + Math.max(6, total / max * 100) + '%"></i></span></button>' +
-        '<div class="cc-body"><div class="cc-inner"><ol class="tl2">' + days.map(dayHTML).join('') + '</ol>' +
-          (cu ? '<div class="cc-act"><button class="btn soft" type="button" data-m="custedit" data-id="' + esc(c.id) + '">' + icon('edit') + 'Editar datos del cliente</button></div>' : '') + '</div></div></article>';
-    }).join('');
-    if (q && q.value) q.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  function renderSummary() {
-    const root = $('#view-summary');
-    if (!$('#sumGrid', root)) {
-      root.innerHTML =
-        '<div class="section-head"><div><h2 class="serif">Resumen</h2><p class="muted">Un vistazo al estado de la tienda</p></div></div>' +
-        '<div id="truncSum"></div>' +
-        '<div class="kpis" id="sumGrid">' +
-          '<div class="kpi k-sage"><span class="kpi-l">Ventas de hoy</span><b class="kpi-v" id="k_sales">0</b><span class="kpi-s" id="k_sales_s"></span></div>' +
-          '<div class="kpi k-sand"><span class="kpi-l">Ingresos de hoy</span><b class="kpi-v" id="k_rev">0 €</b><span class="kpi-s">IVA incluido</span></div>' +
-          '<div class="kpi k-low"><span class="kpi-l">Últimas unidades</span><b class="kpi-v" id="k_low">0</b><span class="kpi-s">productos</span></div>' +
-          '<div class="kpi k-out"><span class="kpi-l">Agotados</span><b class="kpi-v" id="k_out">0</b><span class="kpi-s">productos</span></div>' +
-        '</div>' +
-        '<div class="panels">' +
-          '<section class="panel"><div class="panel-head"><h3 class="serif">Ventas por dependiente</h3><div class="chips" id="rangeChips">' +
-            '<button type="button" class="chip" data-r="today">Hoy</button><button type="button" class="chip" data-r="week">7 días</button><button type="button" class="chip" data-r="month">Mes</button><button type="button" class="chip" data-r="all">Todo</button></div></div><div id="byUser"></div></section>' +
-          '<section class="panel"><div class="panel-head"><h3 class="serif">Productos agotados</h3></div><div id="outList"></div></section>' +
-          '<section class="panel"><div class="panel-head"><h3 class="serif">Últimas unidades</h3></div><div id="lowList"></div></section>' +
-        '</div>' +
-        '<section class="panel panel-wide"><div class="panel-head"><h3 class="serif">Compras por cliente</h3>' +
-          '<label class="search sm">' + icon('search') + '<input type="search" data-mi="filter" data-target="custSum" placeholder="Buscar cliente, teléfono o correo…" autocomplete="off"></label></div>' +
-          '<div class="cks" id="custKpis"></div><p class="muted small" id="custSumNote"></p><div id="custSum"></div></section>';
-      $('#custSum', root).addEventListener('click', e => {
-        const h = e.target.closest('.cc-head'); if (!h) return;
-        const card = h.closest('.cc'), id = card.dataset.id, opening = !card.classList.contains('open');
-        if (opening) {
-          custOpen.add(id); custPlayed.delete(id); card.classList.remove('played'); card.classList.add('open');
-          $$('[data-count]', card).forEach(el => { el.dataset.v = 0; countUp(el, Number(el.dataset.count), el.dataset.money ? money : null); });
-          setTimeout(() => { if (custOpen.has(id)) { custPlayed.add(id); card.classList.add('played'); } }, 1800);
-        } else { custOpen.delete(id); card.classList.remove('open'); }
-        h.setAttribute('aria-expanded', opening);
-      });
-      $('#rangeChips', root).addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { state.range = b.dataset.r; renderSummary(); } });
-    }
-    $('#truncSum', root).innerHTML = truncHTML();
-    const t0 = startOfDay();
-    const sales = realSales();
-    const today = sales.filter(m => m.at >= t0);
-    const todayUnits = today.reduce((a, m) => a + units(m), 0);
-    countUp($('#k_sales'), todayUnits);
-    $('#k_sales_s').textContent = todayUnits === 1 ? 'unidad vendida' : 'unidades vendidas';
-    countUp($('#k_rev'), today.reduce((a, m) => a + m.price * units(m), 0), money);
-    const out = state.products.filter(p => statusOf(p) === 'out'), low = state.products.filter(p => statusOf(p) === 'low');
-    countUp($('#k_low'), low.length); countUp($('#k_out'), out.length);
-
-    $$('#rangeChips .chip', root).forEach(c => c.classList.toggle('on', c.dataset.r === state.range));
-    const since = state.range === 'today' ? t0 : state.range === 'week' ? t0 - 6 * 864e5 : state.range === 'month' ? new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() : 0;
-    const agg = {};
-    sales.filter(m => m.at >= since).forEach(m => { const a = agg[m.user] || (agg[m.user] = { n: 0, rev: 0 }); a.n += units(m); a.rev += m.price * units(m); });
-    const rows = Object.entries(agg).sort((a, b) => b[1].n - a[1].n);
-    const max = rows.length ? rows[0][1].n : 1;
-    $('#byUser').innerHTML = rows.length ? rows.map(([u, a], i) =>
-      '<div class="bar-row"><span class="avatar sm">' + esc(u.charAt(0).toUpperCase()) + '</span><div class="bar-main"><div class="bar-top"><b>' + esc(u) + '</b><span>' + a.n + (a.n === 1 ? ' unidad' : ' unidades') + ' · ' + money(a.rev) + '</span></div>' +
-      '<div class="bar"><i style="width:' + Math.max(4, a.n / max * 100) + '%;--d:' + (i * 70) + 'ms"></i></div></div></div>').join('')
-      : '<p class="muted pad">Todavía no hay ventas en este periodo.</p>';
-
-    renderCustSummary(root);
-    $('#outList').innerHTML = out.length ? out.map(p => {
-      const so = p.soldOutBy || p.lastSale;
-      return '<div class="li"><span class="dot out"></span><div class="li-main"><b>' + esc(p.name) + '</b><span class="muted">' + (p.variant ? esc(p.variant) + ' · ' : '') + 'Ref. ' + esc(p.code) + '</span></div><span class="li-side">' + (so ? 'Vendió <b>' + esc(so.user) + '</b><br>' + fmtDT(so.at) : '—') + '</span></div>';
-    }).join('') : '<p class="muted pad">Ningún producto agotado. 🌿</p>';
-    $('#lowList').innerHTML = low.length ? low.sort((a, b) => a.stock - b.stock).map(p =>
-      '<div class="li"><span class="dot low"></span><div class="li-main"><b>' + esc(p.name) + '</b><span class="muted">' + (p.variant ? esc(p.variant) + ' · ' : '') + 'Ref. ' + esc(p.code) + '</span></div><span class="li-side"><b>' + p.stock + '</b> ' + (p.stock === 1 ? 'unidad' : 'unidades') + '</span></div>').join('')
-      : '<p class="muted pad">Todo con stock suficiente.</p>';
-  }
-
-  /* =========================================================
      RENDER GLOBAL Y TIEMPO REAL
      ========================================================= */
   function renderAll() {
     if (state.view === 'inventory') renderGrid();
     else if (state.view === 'sales') renderSales();
-    else if (state.view === 'summary') renderSummary();
     else if (MasarteUI.views[state.view]) MasarteUI.views[state.view].render();
     renderBadge();
   }
@@ -926,23 +825,28 @@
     state.truncated = !!data.truncated;
     state.loaded = true;
     if (state.user) {
-      if (first) state.animate = true;
-      // no interrumpir al usuario mientras escribe en el buscador
-      renderAll();
+      if (first) { state.animate = true; renderAll(); } else scheduleRender();
     }
   }
 
-  // Contador del carrito en las pestañas (sin repintar todo)
+  // Varios cambios casi a la vez (p. ej. una compra toca producto, carrito y movimientos) se pintan una sola vez
+  let rafId = 0;
+  function scheduleRender() {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => { rafId = 0; renderAll(); });
+  }
+
+  // Contador de compras sin terminar en la pestaña Clientes (sin repintar todo)
   function renderBadge() {
-    const n = cartUnits(state.customerId);
-    $$('.tab[data-view="cart"]').forEach(t => {
+    const n = openCarts();
+    $$('.tab[data-view="customers"]').forEach(t => {
       let b = $('.tab-n', t);
-      if (n && !b) { b = document.createElement('em'); b.className = 'tab-n'; t.appendChild(b); }
+      if (n && !b) { b = document.createElement('em'); b.className = 'tab-n'; b.title = 'Compras sin terminar'; t.appendChild(b); }
       if (b) { if (n) b.textContent = n; else b.remove(); }
     });
   }
 
-  // Las reservas caducan con el tiempo: se repinta cada 20 s la vista de carrito/tienda/admin (sin molestar si se está escribiendo)
+  // Las reservas caducan con el tiempo: se repinta cada 20 s la vista de clientes/compra (sin molestar si se está escribiendo)
   setInterval(() => {
     if (!state.loaded || !state.user || !MasarteUI.views[state.view]) return;
     const a = document.activeElement;
@@ -966,13 +870,13 @@
   }
 
   /* =========================================================
-     API para el módulo de tienda, carrito y administración
+     API para el módulo de clientes y compra
      ========================================================= */
   Object.assign(MasarteUI, {
     state, store, cfg, P, $, $$, esc, money, icon, toast, errMsg, fmtDT, catKey, CATS, busy, lsGet, lsSet,
     openSheet, closeSheet, tryCloseSheet, confirmBox, countUp, reduceMotion,
     avail, customerById, customerName, contactHTML, cartOf, promoById, productsMap, cartUnits, statusOf, byId,
-    renderHeader, renderAll, setView, openProductForm,
+    fmtDay, listJoin, ymd, units, renderHeader, renderAll, setView, openProductForm,
     setSheetGuard: fn => { sheetGuard = fn; }
   });
 
