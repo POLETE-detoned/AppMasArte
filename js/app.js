@@ -105,6 +105,8 @@
   const cartOf = id => state.carts.find(c => c.id === id) || null;
   const promoById = id => state.promos.find(x => x.id === id) || null;
   const productsMap = () => { const m = {}; state.products.forEach(p => { m[p.id] = p; }); return m; };
+  // Nombre vigente del cliente (si se corrige, se ve corregido en todo el historial)
+  const customerName = (id, fallback) => { const c = customerById(id); return c ? c.name : (fallback || '—'); };
   // Teléfono y correo de una cuenta de cliente (HTML con iconos)
   function contactHTML(customerId) {
     const c = customerById(customerId); if (!c) return '';
@@ -670,7 +672,7 @@
   function saleWho(m) {
     if (m.type !== 'sale') return '';
     if (!m.customerId && !m.customerName) return '<span class="who muted">Venta rápida en tienda · sin cuenta de cliente</span>';
-    const c = customerById(m.customerId), name = c ? c.name : m.customerName;
+    const name = customerName(m.customerId, m.customerName);
     return '<span class="who">Ha sido vendido al cliente <b>' + esc(name) + '</b>' + (contactHTML(m.customerId) ? ' ' + contactHTML(m.customerId) : '') + '</span>';
   }
 
@@ -747,7 +749,7 @@
     const rows = [['Fecha', 'Hora', 'Tipo', 'Producto', 'Referencia', 'Variante', 'Categoría', 'Usuario', 'Cantidad', 'Precio unidad', 'Deshecha', 'Cliente', 'Teléfono', 'Email', 'Descuento %']];
     filteredMovements().forEach(m => {
       const d = new Date(m.at);
-      rows.push([d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES'), (TYPES[m.type] || {}).label || m.type, m.productName, m.code, m.variant, m.category, m.user, m.qty, String(m.price).replace('.', ','), m.undone ? 'Sí' : '', m.customerName || '', (customerById(m.customerId) || {}).phone || '', (customerById(m.customerId) || {}).email || '', m.discount || 0]);
+      rows.push([d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES'), (TYPES[m.type] || {}).label || m.type, m.productName, m.code, m.variant, m.category, m.user, m.qty, String(m.price).replace('.', ','), m.undone ? 'Sí' : '', m.customerId ? customerName(m.customerId, m.customerName) : (m.customerName || ''), (customerById(m.customerId) || {}).phone || '', (customerById(m.customerId) || {}).email || '', m.discount || 0]);
     });
     const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a');
@@ -924,7 +926,7 @@
   Object.assign(MasarteUI, {
     state, store, cfg, P, $, $$, esc, money, icon, toast, errMsg, fmtDT, catKey, CATS, busy, lsGet, lsSet,
     openSheet, closeSheet, tryCloseSheet, confirmBox, countUp, reduceMotion,
-    avail, customerById, contactHTML, cartOf, promoById, productsMap, cartUnits, statusOf, byId,
+    avail, customerById, customerName, contactHTML, cartOf, promoById, productsMap, cartUnits, statusOf, byId,
     renderHeader, renderAll, setView, openProductForm,
     setSheetGuard: fn => { sheetGuard = fn; }
   });

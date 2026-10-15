@@ -24,6 +24,7 @@
   function custBarHTML() {
     const opts = state.customers.map(c => '<option value="' + esc(c.id) + '"' + (c.id === state.customerId ? ' selected' : '') + '>' + esc(c.name) + (cartUnitsOf(c.id) ? ' · ' + cartUnitsOf(c.id) + ' en carrito' : '') + '</option>').join('');
     return '<div class="cust-bar"><label class="field sm"><span>Cuenta del cliente</span><select data-mc="cust"><option value="">— Elige una cuenta —</option>' + opts + '</select></label>' +
+      (cust() ? '<button class="btn soft" type="button" data-m="custedit" data-id="' + esc(state.customerId) + '" title="Corregir nombre, teléfono o correo">' + icon('edit') + 'Editar cliente</button>' : '') +
       '<button class="btn soft" type="button" data-m="newcust">' + icon('plus') + 'Nueva cuenta</button></div>';
   }
   const cartUnitsOf = id => U.cartUnits(id);
@@ -37,7 +38,7 @@
     const ex = editId ? customerById(editId) : null;
     const s = openSheet(
       '<div class="sheet-head"><h3 class="serif">' + (ex ? 'Datos del cliente' : 'Nueva cuenta de cliente') + '</h3><button class="icon-btn" data-close type="button" aria-label="Cerrar">' + icon('close') + '</button></div>' +
-      '<form id="cf" novalidate><label class="field"><span>Nombre *</span><input id="c_name" type="text" maxlength="60" placeholder="Nombre del cliente" value="' + esc(ex ? ex.name : '') + '" required></label>' +
+      '<form id="cf" novalidate>' + (ex ? '<p class="muted small" style="margin:0 0 10px">Si te has equivocado, corrígelo aquí: el cambio se verá en todo el historial de este cliente.</p>' : '') + '<label class="field"><span>Nombre *</span><input id="c_name" type="text" maxlength="60" placeholder="Nombre del cliente" value="' + esc(ex ? ex.name : '') + '" required></label>' +
       '<div class="row2"><label class="field"><span>Teléfono</span><input id="c_phone" type="tel" maxlength="30" inputmode="tel" value="' + esc(ex ? ex.phone : '') + '"></label>' +
       '<label class="field"><span>Email</span><input id="c_mail" type="email" maxlength="80" value="' + esc(ex ? ex.email : '') + '"></label></div>' +
       '<p class="form-error" id="cfErr" role="alert"></p>' +
@@ -251,7 +252,7 @@
      ADMINISTRACIÓN
      ========================================================= */
   const A = { tab: 'carts' };
-  const ATABS = [['carts', 'Carritos activos'], ['orders', 'Compras'], ['promos', 'Descuentos'], ['res', 'Reservas'], ['stock', 'Stock']];
+  const ATABS = [['carts', 'Carritos activos'], ['customers', 'Clientes'], ['orders', 'Compras'], ['promos', 'Descuentos'], ['res', 'Reservas'], ['stock', 'Stock']];
 
   function guardAdmin() {
     if (state.admin || !cfg.adminPin) { state.admin = true; return Promise.resolve(true); }
@@ -283,11 +284,26 @@
     const pm = productsMap();
     return '<div class="atable">' + rows.map(c => {
       const promo = c.promoId ? promoById(c.promoId) : null, t = P.cartTotals(c.items, pm, promo && promo.active !== false ? promo : null), ri = resInfo(c.id, t);
-      return '<div class="arow"><div class="arow-main"><b>' + esc(c.customerName) + '</b><span class="muted">' + plural(t.lines.length, 'línea', 'líneas') + ' · ' + plural(t.units, 'unidad', 'unidades') + ' · Última acción: ' + esc(c.updatedBy || '') + ' · ' + fmtDT(c.updatedAt) + '</span>' +
+      return '<div class="arow"><div class="arow-main"><b>' + esc(U.customerName(c.customerId || c.id, c.customerName)) + '</b><span class="muted">' + plural(t.lines.length, 'línea', 'líneas') + ' · ' + plural(t.units, 'unidad', 'unidades') + ' · Última acción: ' + esc(c.updatedBy || '') + ' · ' + fmtDT(c.updatedAt) + '</span>' +
         '<span class="muted small">' + t.lines.map(l => esc(l.product ? l.product.name : '(eliminado)') + ' ×' + l.qty).join(' · ') + '</span></div>' +
         '<div class="arow-side"><b>' + money(t.total) + '</b>' + (ri.expired ? '<span class="st-pill bad">' + plural(ri.expired, 'reserva caducada', 'reservas caducadas') + '</span>' : '<span class="st-pill ok">Reservado · ' + minsLeft(ri.min) + ' min</span>') + '</div>' +
         '<div class="arow-act"><button class="btn soft" type="button" data-m="acartopen" data-id="' + esc(c.id) + '">Abrir</button><button class="btn danger-ghost" type="button" data-m="acartfree" data-id="' + esc(c.id) + '">Liberar</button></div></div>';
     }).join('') + '</div>';
+  }
+
+  function adminCustomers() {
+    const list = state.customers;
+    if (!list.length) return '<div class="empty small">' + icon('user', 'big') + '<p class="muted">Todavía no hay clientes. Se crean desde la Tienda o el Carrito con «Nueva cuenta».</p></div>';
+    const stats = {};
+    state.orders.forEach(o => { const a = stats[o.customerId] || (stats[o.customerId] = { n: 0, total: 0, last: 0 }); a.n++; a.total += o.total; a.last = Math.max(a.last, o.at); });
+    return '<div class="panel-head"><p class="muted small" style="margin:0">' + plural(list.length, 'cliente', 'clientes') + '. Pulsa «Editar» para corregir el nombre, el teléfono o el correo: el cambio se aplica a todo el historial.</p>' + tableFilter('ctab') + '</div>' +
+      '<div class="atable" id="ctab">' + list.map(c => {
+        const a = stats[c.id], units = U.cartUnits(c.id);
+        return '<div class="arow" data-text="' + esc(((c.name || '') + ' ' + (c.phone || '') + ' ' + (c.email || '')).toLowerCase()) + '"><div class="arow-main"><b>' + esc(c.name) + '</b>' +
+          '<span class="muted contact">' + (U.contactHTML(c.id) || 'Sin teléfono ni correo') + '</span></div>' +
+          '<div class="arow-side"><b>' + (a ? money(a.total) : '—') + '</b><span class="muted small">' + (a ? plural(a.n, 'compra', 'compras') + ' · última ' + fmtDT(a.last) : 'Sin compras') + (units ? ' · ' + plural(units, 'ud. en carrito', 'uds. en carrito') : '') + '</span></div>' +
+          '<div class="arow-act"><button class="btn soft" type="button" data-m="custedit" data-id="' + esc(c.id) + '">' + icon('edit') + 'Editar</button></div></div>';
+      }).join('') + '</div>';
   }
 
   function adminOrders() {
@@ -295,7 +311,7 @@
     if (!o.length) return '<div class="empty small">' + icon('ventas', 'big') + '<p class="muted">Todavía no hay compras finalizadas.</p></div>';
     const total = o.reduce((a, x) => a + x.total, 0), units = o.reduce((a, x) => a + (x.units || 0), 0);
     return '<p class="muted pad">' + plural(o.length, 'compra', 'compras') + ' · ' + plural(units, 'unidad', 'unidades') + ' · <b>' + money(total) + '</b> facturados' + (o.length >= 300 ? ' (últimas 300)' : '') + '</p>' +
-      '<div class="atable">' + o.map(x => '<details class="ord"><summary><div class="arow-main"><b>' + esc(x.customerName) + '</b>' + (U.contactHTML(x.customerId) ? '<span class="muted contact">' + U.contactHTML(x.customerId) + '</span>' : '') + '<span class="muted">' + fmtDT(x.at) + ' · atendió ' + esc(x.user) + (x.promo ? ' · promo «' + esc(x.promo.name) + '»' : '') + '</span></div>' +
+      '<div class="atable">' + o.map(x => '<details class="ord"><summary><div class="arow-main"><b>' + esc(U.customerName(x.customerId, x.customerName)) + '</b>' + (U.contactHTML(x.customerId) ? '<span class="muted contact">' + U.contactHTML(x.customerId) + '</span>' : '') + '<span class="muted">' + fmtDT(x.at) + ' · atendió ' + esc(x.user) + (x.promo ? ' · promo «' + esc(x.promo.name) + '»' : '') + '</span></div>' +
         '<div class="arow-side"><b>' + money(x.total) + '</b><span class="muted small">' + plural(x.units || 0, 'ud.', 'uds.') + (x.saving > 0 ? ' · ahorro ' + money(x.saving) : '') + '</span></div></summary>' +
         '<div class="ord-lines">' + (x.lines || []).map(l => '<div class="sum-l"><div><b>' + esc(l.name) + '</b><span class="muted">' + (l.variant ? esc(l.variant) + ' · ' : '') + 'Ref. ' + esc(l.code) + ' · ' + l.qty + ' × ' + money(l.unitFinal) +
           (l.discount ? ' · dto. ' + l.discount + '%' : '') + (l.promoPct ? ' · promo ' + l.promoPct + '%' : '') + ' <s>' + money(l.listPrice) + '</s></span></div><b>' + money(l.lineTotal) + '</b></div>').join('') + '</div></details>').join('') + '</div>';
@@ -322,7 +338,7 @@
     if (!rows.length) return '<div class="empty small">' + icon('tag', 'big') + '<p class="muted">No hay reservas.</p></div>';
     const live = rows.filter(x => x.live);
     return '<p class="muted pad">' + plural(live.length, 'reserva vigente', 'reservas vigentes') + ' · ' + plural(live.reduce((a, x) => a + x.r.qty, 0), 'unidad retenida', 'unidades retenidas') + (rows.length > live.length ? ' · ' + (rows.length - live.length) + ' caducadas' : '') + '</p>' +
-      '<div class="atable">' + rows.map(x => '<div class="arow"><div class="arow-main"><b>' + esc(x.p.name) + '</b><span class="muted">' + (x.p.variant ? esc(x.p.variant) + ' · ' : '') + 'Ref. ' + esc(x.p.code) + ' · Cuenta: <b>' + esc(x.r.customerName || '—') + '</b></span></div>' +
+      '<div class="atable">' + rows.map(x => '<div class="arow"><div class="arow-main"><b>' + esc(x.p.name) + '</b><span class="muted">' + (x.p.variant ? esc(x.p.variant) + ' · ' : '') + 'Ref. ' + esc(x.p.code) + ' · Cuenta: <b>' + esc(U.customerName(x.cid, x.r.customerName)) + '</b></span></div>' +
         '<div class="arow-side"><b>' + plural(x.r.qty, 'ud.', 'uds.') + '</b><span class="st-pill ' + (x.live ? 'ok' : 'bad') + '">' + (x.live ? 'Caduca ' + hhmm(x.r.exp) + ' · ' + minsLeft(x.r.exp) + ' min' : 'Caducada') + '</span></div>' +
         '<div class="arow-act"><button class="btn danger-ghost" type="button" data-m="ares" data-id="' + esc(x.p.id) + '" data-c="' + esc(x.cid) + '">Liberar</button></div></div>').join('') + '</div>';
   }
@@ -346,14 +362,14 @@
         '<div class="seg" id="adminTabs"></div><div id="adminBody"></div>';
     }
     $('#adminTabs', root).innerHTML = ATABS.map(t => '<button type="button" class="chip' + (A.tab === t[0] ? ' on' : '') + '" data-m="atab" data-t="' + t[0] + '">' + t[1] +
-      (t[0] === 'carts' ? ' <em>' + state.carts.filter(c => (c.items || []).length).length + '</em>' : '') + '</button>').join('');
+      (t[0] === 'carts' ? ' <em>' + state.carts.filter(c => (c.items || []).length).length + '</em>' : t[0] === 'customers' ? ' <em>' + state.customers.length + '</em>' : '') + '</button>').join('');
     const body = $('#adminBody', root);
     // no repintar encima de un campo que se está editando
     const a = document.activeElement;
     if (a && body.contains(a) && /^(INPUT|SELECT)$/.test(a.tagName) && body.dataset.tab === A.tab) return;
     const keep = $('[data-mi="filter"]', body), kv = keep ? keep.value : '';
     body.dataset.tab = A.tab;
-    body.innerHTML = ({ carts: adminCarts, orders: adminOrders, promos: adminPromos, res: adminRes, stock: adminStock }[A.tab])();
+    body.innerHTML = ({ carts: adminCarts, customers: adminCustomers, orders: adminOrders, promos: adminPromos, res: adminRes, stock: adminStock }[A.tab])();
     const f = $('[data-mi="filter"]', body); if (f && kv) { f.value = kv; applyFilter(f); }
   }
   function applyFilter(input) {

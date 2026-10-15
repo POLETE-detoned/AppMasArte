@@ -44,6 +44,16 @@
       notes: String(f.notes || '').trim()
     };
   }
+  // Datos de un cliente: nombre obligatorio; correo y teléfono opcionales pero con formato válido
+  function cleanCustomer(f) {
+    const name = String(f.name || '').replace(/\s+/g, ' ').trim();
+    if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
+    const email = String(f.email || '').trim().toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('El correo no tiene un formato válido (por ejemplo, nombre@correo.es).');
+    const phone = String(f.phone || '').replace(/\s+/g, ' ').trim();
+    if (phone && !/^[+()\d][\d\s().\-]{5,29}$/.test(phone)) throw new Error('El teléfono no es válido: usa solo números, espacios y el signo +.');
+    return { name: name.slice(0, 60), phone, email: email.slice(0, 80) };
+  }
   function cleanPromo(f) {
     const percent = Math.floor(Number(f.percent));
     if (!String(f.name || '').trim()) throw new Error('La promoción necesita un nombre.');
@@ -409,16 +419,14 @@
 
       /* ----- Clientes, carritos y compras ----- */
       async addCustomer(fields, user) {
-        const name = String(fields.name || '').trim();
-        if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
+        const c = cleanCustomer(fields);
         const ref = col('customers').doc();
-        await ref.set({ name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), createdAt: Date.now(), createdBy: user });
+        await ref.set(Object.assign(c, { createdAt: Date.now(), createdBy: user }));
         return ref.id;
       },
       async updateCustomer(id, fields, user) {
-        const name = String(fields.name || '').trim();
-        if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
-        await col('customers').doc(id).update({ name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), updatedAt: Date.now(), updatedBy: user });
+        const c = cleanCustomer(fields);
+        await col('customers').doc(id).update(Object.assign(c, { updatedAt: Date.now(), updatedBy: user }));
       },
       cartSetLine(customerId, productId, qty, discount, user) {
         return cartOp(customerId, productId, r => coreSetLine({ now: Date.now(), user, customer: r.customer, cart: r.cart, product: r.products[productId] || null, productId, qty, discount }));
@@ -587,20 +595,18 @@
       },
 
       async addCustomer(fields, user) {
-        const name = String(fields.name || '').trim();
-        if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
+        const c = cleanCustomer(fields);
         db = load();
         const id = rid();
-        db.customers[id] = { name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), createdAt: Date.now(), createdBy: user };
+        db.customers[id] = Object.assign(c, { createdAt: Date.now(), createdBy: user });
         save();
         return id;
       },
       async updateCustomer(id, fields, user) {
-        const name = String(fields.name || '').trim();
-        if (name.length < 2) throw new Error('Escribe el nombre del cliente.');
+        const c = cleanCustomer(fields);
         db = load();
         if (!db.customers[id]) throw new Error('La cuenta del cliente ya no existe.');
-        Object.assign(db.customers[id], { name: name.slice(0, 60), phone: String(fields.phone || '').trim().slice(0, 30), email: String(fields.email || '').trim().slice(0, 80), updatedAt: Date.now(), updatedBy: user });
+        Object.assign(db.customers[id], c, { updatedAt: Date.now(), updatedBy: user });
         save();
       },
       async cartSetLine(customerId, productId, qty, discount, user) {
