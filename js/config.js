@@ -11,7 +11,7 @@ window.MASARTE_CONFIG = {
   tagline: "Interiorismo",
 
   // PIN que deben teclear los dependientes al entrar. Déjalo vacío ("") para no pedirlo.
-  shopPin: "1234",
+  shopPin: "2010",
 
   // Nombres de los dependientes (aparecen como botones rápidos al entrar). Opcional.
   staff: [],

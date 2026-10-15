@@ -19,7 +19,7 @@ Con `js/config.js` tal cual, la app corre en **modo local** (etiqueta naranja "M
 ```bash
 npx serve .      # o abre index.html directamente
 ```
-PIN por defecto: `1234`. En un inventario vacío pulsa **Cargar ejemplos**.
+PIN por defecto: `2010`. En un inventario vacío pulsa **Cargar ejemplos**.
 
 ## Base de datos compartida (Firebase · gratis)
 
