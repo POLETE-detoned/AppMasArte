@@ -23,11 +23,11 @@ window.MASARTE_CONFIG = {
 
   // Datos de Firebase → Configuración del proyecto → Tus apps → SDK de la app web
   firebase: {
-    apiKey: "TU_API_KEY",
-    authDomain: "TU_PROYECTO.firebaseapp.com",
-    projectId: "TU_PROYECTO",
-    storageBucket: "TU_PROYECTO.appspot.com",
-    messagingSenderId: "000000000000",
-    appId: "1:000000000000:web:0000000000000000"
+    apiKey: "AIzaSyAM8Qk9GLUBGpPFhEdtcs0CI4D98BldpSs",
+    authDomain: "appmasarte.firebaseapp.com",
+    projectId: "appmasarte",
+    storageBucket: "appmasarte.firebasestorage.app",
+    messagingSenderId: "948064547452",
+    appId: "1:948064547452:web:4fade5e8f8d6a82fbfcff9"
   }
 };
