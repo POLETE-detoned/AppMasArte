@@ -12,6 +12,18 @@ firestore.rules   → reglas de seguridad de la base de datos
 firebase.json     → publicación en Firebase Hosting
 ```
 
+## Tienda, carritos y administración
+
+Pestañas: **Inventario** (gestión), **Tienda** (catálogo para vender), **Carrito** (uno por cuenta de cliente), **Ventas**, **Resumen** y **Admin** (PIN `adminPin` de `js/config.js`).
+
+- **Cuentas**: cada cliente tiene su cuenta y su carrito independiente. Atiende el dependiente identificado.
+- **Stock** = físico · reservado · disponible. Al añadir al carrito se **reservan** las unidades (`reservationMinutes`, 30 por defecto). Quitar un artículo, vaciar el carrito o dejar caducar la reserva las libera. Al **Finalizar compra** se descuentan definitivamente y se guarda el pedido. La reserva se decide dentro de una transacción de Firestore: dos cuentas no pueden quedarse con la misma unidad.
+- **Descuentos**: 0, 10, 20, 30, 40, 50 y 100 % (gratis) por línea. Cada producto tiene su apartado "Descuentos" con el desglose original · descuento · final.
+- **Promociones** (las crea el administrador): un % para todo o para una categoría, con importe mínimo opcional. **No se suman** a un descuento manual de la línea salvo que la promoción esté marcada como *acumulable* (autorización expresa).
+- **Admin**: carritos activos, compras finalizadas, promociones y descuento por producto, reservas (con liberación manual) y stock físico/reservado/disponible.
+
+> Si ya tenías la base de datos en marcha, **vuelve a pegar `firestore.rules`** en Firestore → Reglas → Publicar: hay colecciones nuevas (`customers`, `carts`, `orders`, `promos`).
+
 ## Probarla ya (sin configurar nada)
 
 Con `js/config.js` tal cual, la app corre en **modo local** (etiqueta naranja "Modo local"): los datos viven solo en ese navegador. Sirve para ver el diseño y probar el flujo.

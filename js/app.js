@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  const MasarteUI = window.MasarteUI = { views: {} };
 
   /* =========================================================
      UTILIDADES
@@ -47,6 +48,10 @@
     jarron: '<path d="M9.2 3h5.6M10 3v3.2c0 2.2-3.8 3.1-3.8 7.8a5.8 5.8 0 0 0 11.6 0c0-4.7-3.8-5.6-3.8-7.8V3"/><path d="M8 13.6c2.6 1 5.4 1 8 0"/>',
     menaje: '<path d="M4.8 10h11v3.4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M15.8 11h1.7a2.1 2.1 0 0 1 0 4.2h-1.7M8 4.6c0 .9 1 1.2 1 2.1M12 4.6c0 .9 1 1.2 1 2.1M4 21h13"/>',
     deco: '<rect x="4" y="5" width="16" height="14" rx="2.2"/><path d="M4 16l4.2-4.2 3.6 3 3-3L20 17"/><circle cx="9" cy="9.5" r="1.2"/>',
+    shop: '<path d="M4 9l1.2-4.5h13.6L20 9"/><path d="M4 9h16v1.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0z"/><path d="M5.5 12.5V20h13v-7.5M10 20v-4h4v4"/>',
+    cart: '<circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/><path d="M3 4h2.4l2 10.5h10.2L19.5 8H6.2"/>',
+    admin: '<path d="M12 3l7 3v5.5c0 4.2-2.8 7.4-7 9-4.2-1.6-7-4.8-7-9V6z"/><path d="M9.2 12l2 2 3.8-4"/>',
+    tag: '<path d="M3.5 12.2V4.5h7.7l9 9a1.6 1.6 0 0 1 0 2.3l-5.4 5.4a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8" cy="9" r="1.3"/>',
     inv: '<path d="M4 8.5L12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5l8 4.5 8-4.5M12 13v7"/>',
     ventas: '<path d="M6 4h12v16l-2.2-1.5L13.6 20 12 18.5 10.4 20l-2.2-1.5L6 20z"/><path d="M9 8.5h6M9 12h6"/>',
     resumen: '<path d="M5 20V11M12 20V4M19 20v-6"/>',
@@ -78,6 +83,8 @@
     view: 'inventory',
     cat: 'all', q: '', status: 'all',
     products: [], movements: [], loaded: false, truncated: false,
+    customers: [], carts: [], orders: [], promos: [],
+    customerId: lsGet('masarte.customer', ''), admin: false,
     sf: { user: '', cat: '', type: '', from: '', to: '', limit: 80 },
     range: 'today',
     animate: true, changed: new Set(), online: true
@@ -87,6 +94,14 @@
     ? '<div class="notice"><span>Se muestran solo los últimos <b>' + state.movements.length + '</b> movimientos. El resumen, los filtros y la exportación cuentan solo esos.</span><button type="button" class="btn soft" data-loadmore>Cargar más</button></div>' : '');
   let prevMap = new Map();
 
+  const P = window.MasartePricing;
+  const avail = p => P.available(p, Date.now());
+  const customerById = id => state.customers.find(c => c.id === id) || null;
+  const cartOf = id => state.carts.find(c => c.id === id) || null;
+  const promoById = id => state.promos.find(x => x.id === id) || null;
+  const productsMap = () => { const m = {}; state.products.forEach(p => { m[p.id] = p; }); return m; };
+  const cartUnits = id => { const c = cartOf(id); return c ? (c.items || []).reduce((a, i) => a + i.qty, 0) : 0; };
+  const units = m => (m.qty > 0 ? m.qty : 1);
   const statusOf = p => ((p.stock || 0) <= 0 ? 'out' : p.stock <= LOW ? 'low' : 'ok');
   const byId = id => state.products.find(p => p.id === id);
   const realSales = () => state.movements.filter(m => m.type === 'sale' && !m.undone);
@@ -274,20 +289,25 @@
      ========================================================= */
   const VIEWS = [
     { id: 'inventory', label: 'Inventario', ic: 'inv' },
+    { id: 'shop', label: 'Tienda', ic: 'shop' },
+    { id: 'cart', label: 'Carrito', ic: 'cart', badge: true },
     { id: 'sales', label: 'Ventas', ic: 'ventas' },
-    { id: 'summary', label: 'Resumen', ic: 'resumen' }
+    { id: 'summary', label: 'Resumen', ic: 'resumen' },
+    { id: 'admin', label: 'Admin', ic: 'admin' }
   ];
   function renderHeader() {
     $('#brandName').textContent = cfg.storeName || 'MasArte';
     $('#brandTag').textContent = cfg.tagline || '';
     const initial = (state.user || '?').trim().charAt(0).toUpperCase();
     $('#userChip').innerHTML = '<span class="avatar">' + esc(initial) + '</span><span class="u-name">' + esc(state.user) + '</span><span class="u-change">Cambiar</span>';
-    const tabs = VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '">' + icon(v.ic) + '<span>' + v.label + '</span></button>').join('');
+    const tabs = VIEWS.map(v => '<button type="button" class="tab' + (state.view === v.id ? ' active' : '') + '" data-view="' + v.id + '">' + icon(v.ic) + '<span>' + v.label + '</span>' + (v.badge && cartUnits(state.customerId) ? '<em class="tab-n">' + cartUnits(state.customerId) + '</em>' : '') + '</button>').join('');
     $('#tabsTop').innerHTML = tabs;
     $('#tabsBottom').innerHTML = tabs;
     $('#fab').hidden = state.view !== 'inventory';
   }
-  function setView(v) {
+  async function setView(v) {
+    const ext = MasarteUI.views[v];
+    if (ext && ext.guard && !(await ext.guard())) return;
     state.view = v; state.animate = true;
     VIEWS.forEach(x => { $('#view-' + x.id).hidden = x.id !== v; });
     renderHeader(); renderAll();
@@ -375,7 +395,7 @@
     const badge = st === 'out' ? '<span class="badge out">AGOTADO</span>'
       : st === 'low' ? '<span class="badge low"><i></i>Últimas unidades</span>'
       : '<span class="badge ok"><i></i>Disponible</span>';
-    const ls = p.lastSale;
+    const ls = p.lastSale, rsv = P.reservedUnits(p, Date.now()), blocked = st === 'out' || avail(p) <= 0;
     const last = ls ? 'Última venta: <b>' + esc(ls.user) + '</b> · ' + fmtDT(ls.at) : 'Sin ventas todavía';
     const so = p.soldOutBy || ls;
     const soldOut = st === 'out'
@@ -391,10 +411,11 @@
         (p.notes ? '<p class="notes">' + esc(p.notes) + '</p>' : '') +
         soldOut +
         '<p class="last">' + last + '</p>' +
-        '<button class="btn sell" type="button" data-act="sell"' + (st === 'out' ? ' disabled' : '') + '>' + icon('bag') + '<span>' + (st === 'out' ? 'Agotado' : 'Vender') + '</span></button>' +
+        (rsv > 0 && st !== 'out' ? '<p class="reserved">' + icon('cart') + rsv + (rsv === 1 ? ' unidad reservada' : ' unidades reservadas') + ' en carritos · ' + avail(p) + ' libres</p>' : '') +
+        '<button class="btn sell" type="button" data-act="sell"' + (blocked ? ' disabled' : '') + '>' + icon('bag') + '<span>' + (st === 'out' ? 'Agotado' : blocked ? 'Reservado' : 'Vender') + '</span></button>' +
         '<div class="card-actions">' +
           '<button type="button" class="btn soft" data-act="restock">' + icon('box') + 'Reponer</button>' +
-          '<button type="button" class="btn soft" data-act="undo"' + (ls ? '' : ' disabled') + '>' + icon('undo') + 'Deshacer</button>' +
+          '<button type="button" class="btn soft" data-act="undo"' + (ls && !ls.orderId ? '' : ' disabled') + '>' + icon('undo') + 'Deshacer</button>' +
           '<button type="button" class="btn soft" data-act="edit">' + icon('edit') + 'Editar</button>' +
         '</div>' +
       '</div></article>';
@@ -610,7 +631,14 @@
     { name: 'Escultura de cerámica', code: 'DE-0618', category: 'Decoración', variant: 'Terracota', price: 54, stock: 7, notes: 'Pieza única hecha a mano.' }
   ];
   async function seedExamples() {
-    try { await store.seed(EXAMPLES, state.user); toast('Productos de ejemplo añadidos', { type: 'ok' }); } catch (e) { toast(errMsg(e), { type: 'err' }); }
+    try {
+      await store.seed(EXAMPLES, state.user);
+      if (!state.promos.length) {
+        await store.savePromo({ name: 'Textil −15 %', percent: 15, scope: 'Textil', minSubtotal: 0, stackable: false, active: true }, state.user);
+        await store.savePromo({ name: 'Compra de más de 150 € · −10 %', percent: 10, scope: 'all', minSubtotal: 150, stackable: false, active: true }, state.user);
+      }
+      toast('Productos y promociones de ejemplo añadidos', { type: 'ok' });
+    } catch (e) { toast(errMsg(e), { type: 'err' }); }
   }
 
   /* =========================================================
@@ -662,7 +690,8 @@
 
     const list = filteredMovements();
     const sales = list.filter(m => m.type === 'sale' && !m.undone);
-    $('#salesCount', root).textContent = list.length + ' movimiento' + (list.length === 1 ? '' : 's') + (sales.length ? ' · ' + sales.length + ' venta' + (sales.length === 1 ? '' : 's') + ' · ' + money(sales.reduce((a, m) => a + m.price, 0)) : '');
+    const nSales = sales.reduce((a, m) => a + units(m), 0);
+    $('#salesCount', root).textContent = list.length + ' movimiento' + (list.length === 1 ? '' : 's') + (nSales ? ' · ' + nSales + (nSales === 1 ? ' unidad vendida' : ' unidades vendidas') + ' · ' + money(sales.reduce((a, m) => a + m.price * units(m), 0)) : '');
     const box = $('#mvList', root);
     if (!state.loaded) { box.innerHTML = '<div class="empty"><div class="spinner"></div></div>'; return; }
     if (!list.length) { box.innerHTML = '<div class="empty">' + icon('ventas', 'big') + '<h3 class="serif">Sin movimientos</h3><p class="muted">No hay registros con estos filtros.</p></div>'; return; }
@@ -676,10 +705,10 @@
         html += '<div class="day">' + esc(label) + '</div>';
       }
       const t = TYPES[m.type] || { label: m.type, cls: 'edit' };
-      const q = m.type === 'sale' ? '−1' : m.type === 'restock' ? '+' + m.qty : m.type === 'undo' ? '+1' : m.type === 'adjust' ? (m.qty > 0 ? '+' : '') + m.qty : m.type === 'create' ? '+' + m.qty : '';
+      const q = m.type === 'sale' ? '−' + units(m) : m.type === 'restock' ? '+' + m.qty : m.type === 'undo' ? '+1' : m.type === 'adjust' ? (m.qty > 0 ? '+' : '') + m.qty : m.type === 'create' ? '+' + m.qty : '';
       html += '<div class="mv' + (m.undone ? ' undone' : '') + (state.animate ? ' enter' : '') + '" style="--i:' + Math.min(i, 12) + '">' +
         '<span class="pill ' + t.cls + '">' + t.label + '</span>' +
-        '<div class="mv-main"><b>' + esc(m.productName) + '</b><span class="muted">' + (m.variant ? esc(m.variant) + ' · ' : '') + 'Ref. ' + esc(m.code) + '</span></div>' +
+        '<div class="mv-main"><b>' + esc(m.productName) + '</b><span class="muted">' + (m.variant ? esc(m.variant) + ' · ' : '') + 'Ref. ' + esc(m.code) + (m.customerName ? ' · Cliente: ' + esc(m.customerName) : '') + (m.discount || m.promoPct ? ' · −' + (m.discount || 0) + '%' + (m.promoPct ? ' +promo ' + m.promoPct + '%' : '') : '') + '</span></div>' +
         '<span class="mv-cat">' + icon(catKey(m.category)) + esc(m.category) + '</span>' +
         '<span class="mv-user">' + icon('user') + esc(m.user) + '</span>' +
         '<span class="mv-qty">' + q + '</span>' +
@@ -692,10 +721,10 @@
   }
 
   function exportCSV() {
-    const rows = [['Fecha', 'Hora', 'Tipo', 'Producto', 'Referencia', 'Variante', 'Categoría', 'Usuario', 'Cantidad', 'Precio', 'Deshecha']];
+    const rows = [['Fecha', 'Hora', 'Tipo', 'Producto', 'Referencia', 'Variante', 'Categoría', 'Usuario', 'Cantidad', 'Precio unidad', 'Deshecha', 'Cliente', 'Descuento %']];
     filteredMovements().forEach(m => {
       const d = new Date(m.at);
-      rows.push([d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES'), (TYPES[m.type] || {}).label || m.type, m.productName, m.code, m.variant, m.category, m.user, m.qty, String(m.price).replace('.', ','), m.undone ? 'Sí' : '']);
+      rows.push([d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES'), (TYPES[m.type] || {}).label || m.type, m.productName, m.code, m.variant, m.category, m.user, m.qty, String(m.price).replace('.', ','), m.undone ? 'Sí' : '', m.customerName || '', m.discount || 0]);
     });
     const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a');
@@ -732,20 +761,21 @@
     const t0 = startOfDay();
     const sales = realSales();
     const today = sales.filter(m => m.at >= t0);
-    countUp($('#k_sales'), today.length);
-    $('#k_sales_s').textContent = today.length === 1 ? 'unidad vendida' : 'unidades vendidas';
-    countUp($('#k_rev'), today.reduce((a, m) => a + m.price, 0), money);
+    const todayUnits = today.reduce((a, m) => a + units(m), 0);
+    countUp($('#k_sales'), todayUnits);
+    $('#k_sales_s').textContent = todayUnits === 1 ? 'unidad vendida' : 'unidades vendidas';
+    countUp($('#k_rev'), today.reduce((a, m) => a + m.price * units(m), 0), money);
     const out = state.products.filter(p => statusOf(p) === 'out'), low = state.products.filter(p => statusOf(p) === 'low');
     countUp($('#k_low'), low.length); countUp($('#k_out'), out.length);
 
     $$('#rangeChips .chip', root).forEach(c => c.classList.toggle('on', c.dataset.r === state.range));
     const since = state.range === 'today' ? t0 : state.range === 'week' ? t0 - 6 * 864e5 : state.range === 'month' ? new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() : 0;
     const agg = {};
-    sales.filter(m => m.at >= since).forEach(m => { const a = agg[m.user] || (agg[m.user] = { n: 0, rev: 0 }); a.n++; a.rev += m.price; });
+    sales.filter(m => m.at >= since).forEach(m => { const a = agg[m.user] || (agg[m.user] = { n: 0, rev: 0 }); a.n += units(m); a.rev += m.price * units(m); });
     const rows = Object.entries(agg).sort((a, b) => b[1].n - a[1].n);
     const max = rows.length ? rows[0][1].n : 1;
     $('#byUser').innerHTML = rows.length ? rows.map(([u, a], i) =>
-      '<div class="bar-row"><span class="avatar sm">' + esc(u.charAt(0).toUpperCase()) + '</span><div class="bar-main"><div class="bar-top"><b>' + esc(u) + '</b><span>' + a.n + (a.n === 1 ? ' venta' : ' ventas') + ' · ' + money(a.rev) + '</span></div>' +
+      '<div class="bar-row"><span class="avatar sm">' + esc(u.charAt(0).toUpperCase()) + '</span><div class="bar-main"><div class="bar-top"><b>' + esc(u) + '</b><span>' + a.n + (a.n === 1 ? ' unidad' : ' unidades') + ' · ' + money(a.rev) + '</span></div>' +
       '<div class="bar"><i style="width:' + Math.max(4, a.n / max * 100) + '%;--d:' + (i * 70) + 'ms"></i></div></div></div>').join('')
       : '<p class="muted pad">Todavía no hay ventas en este periodo.</p>';
 
@@ -764,7 +794,9 @@
   function renderAll() {
     if (state.view === 'inventory') renderGrid();
     else if (state.view === 'sales') renderSales();
-    else renderSummary();
+    else if (state.view === 'summary') renderSummary();
+    else if (MasarteUI.views[state.view]) MasarteUI.views[state.view].render();
+    renderBadge();
   }
 
   function onData(data) {
@@ -784,6 +816,8 @@
     prevMap = nextMap;
     state.products = data.products;
     state.movements = data.movements;
+    state.customers = (data.customers || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'es'));
+    state.carts = data.carts || []; state.orders = data.orders || []; state.promos = data.promos || [];
     state.truncated = !!data.truncated;
     state.loaded = true;
     if (state.user) {
@@ -792,6 +826,24 @@
       renderAll();
     }
   }
+
+  // Contador del carrito en las pestañas (sin repintar todo)
+  function renderBadge() {
+    const n = cartUnits(state.customerId);
+    $$('.tab[data-view="cart"]').forEach(t => {
+      let b = $('.tab-n', t);
+      if (n && !b) { b = document.createElement('em'); b.className = 'tab-n'; t.appendChild(b); }
+      if (b) { if (n) b.textContent = n; else b.remove(); }
+    });
+  }
+
+  // Las reservas caducan con el tiempo: se repinta cada 20 s la vista de carrito/tienda/admin (sin molestar si se está escribiendo)
+  setInterval(() => {
+    if (!state.loaded || !state.user || !MasarteUI.views[state.view]) return;
+    const a = document.activeElement;
+    if (!$('#sheetRoot').hidden || (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))) return;
+    renderAll();
+  }, 20000);
 
   let booted = false;
   async function boot() {
@@ -807,6 +859,17 @@
     try { await store.init(); }
     catch (e) { banner(errMsg(e)); state.loaded = true; renderAll(); }
   }
+
+  /* =========================================================
+     API para el módulo de tienda, carrito y administración
+     ========================================================= */
+  Object.assign(MasarteUI, {
+    state, store, cfg, P, $, $$, esc, money, icon, toast, errMsg, fmtDT, catKey, CATS, busy, lsGet, lsSet,
+    openSheet, closeSheet, tryCloseSheet, confirmBox, countUp, reduceMotion,
+    avail, customerById, cartOf, promoById, productsMap, cartUnits, statusOf, byId,
+    renderHeader, renderAll, setView, openProductForm,
+    setSheetGuard: fn => { sheetGuard = fn; }
+  });
 
   /* =========================================================
      INICIO
