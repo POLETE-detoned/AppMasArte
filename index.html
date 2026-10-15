@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F6EFE4">
+  <meta name="description" content="Control de stock y ventas para tienda de interiorismo">
+  <title>MasArte · Stock y ventas</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237A8F76'/%3E%3Cpath d='M16 7c5 3 7 8 3 14-2 2-6 2-8 0-4-6-2-11 5-14z' fill='%23F6EFE4'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ENTRADA -->
+  <div id="login" class="login" hidden></div>
+
+  <!-- APP -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text"><span id="brandName" class="brand-name">MasArte</span><span id="brandTag" class="brand-tag">Interiorismo</span></span>
+      </div>
+
+      <nav class="tabs tabs-top" id="tabsTop" aria-label="Secciones"></nav>
+
+      <div class="top-right">
+        <span id="livePill" class="live" title="Estado de la conexión"><i></i><span>En vivo</span></span>
+        <button id="userChip" class="user-chip" type="button" title="Cambiar de usuario"></button>
+      </div>
+    </header>
+
+    <div id="banner" class="banner" hidden></div>
+
+    <main>
+      <section id="view-inventory" class="view" aria-label="Inventario"></section>
+      <section id="view-sales" class="view" aria-label="Ventas" hidden></section>
+      <section id="view-summary" class="view" aria-label="Resumen" hidden></section>
+    </main>
+
+    <nav class="tabs tabs-bottom" id="tabsBottom" aria-label="Secciones"></nav>
+
+    <button id="fab" class="fab" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nuevo producto</span></button>
+  </div>
+
+  <div id="sheetRoot" class="overlay" hidden></div>
+  <div id="confirmRoot" class="overlay overlay-top" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
