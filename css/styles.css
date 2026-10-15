@@ -378,3 +378,7 @@ main { padding: 22px var(--pad) 120px; max-width: 1320px; margin: 0 auto; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- Aviso de datos limitados ---------- */
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--low-bg); color: #7a3f05; border-radius: var(--r-sm); padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
+.notice .btn { min-height: 40px; background: rgba(255, 255, 255, .6); }

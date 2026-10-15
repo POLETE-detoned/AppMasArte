@@ -43,8 +43,9 @@
      --------------------------------------------------------- */
   function createFirestoreStore() {
     let db = null, products = [], movements = [], listener = null;
+    let movLimit = 1500, unsubM = null, truncated = false, failFn = null;
     let gotP = false, gotM = false, statusCb = null;
-    const emit = () => { if (gotP && gotM && listener) listener({ products: products.slice(), movements: movements.slice() }); };
+    const emit = () => { if (gotP && gotM && listener) listener({ products: products.slice(), movements: movements.slice(), truncated }); };
     const setStatus = s => statusCb && statusCb(s);
 
     function loadScript(src) {
@@ -56,8 +57,19 @@
       });
     }
 
+    // Suscripción a los movimientos más recientes (el límite crece con "Cargar más")
+    function subscribeMovements() {
+      if (unsubM) unsubM();
+      unsubM = db.collection('movements').orderBy('at', 'desc').limit(movLimit).onSnapshot(snap => {
+        movements = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+        truncated = snap.size >= movLimit;
+        gotM = true; emit();
+      }, failFn);
+    }
+
     const api = {
       mode: 'firebase',
+      loadMoreMovements() { if (!db) return; movLimit += 1500; subscribeMovements(); },
       onStatus(cb) { statusCb = cb; },
       onChange(cb) { listener = cb; },
       async init() {
@@ -79,10 +91,8 @@
           products = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
           gotP = true; setStatus({ online: !snap.metadata.fromCache || navigator.onLine }); emit();
         }, fail);
-        db.collection('movements').orderBy('at', 'desc').limit(1500).onSnapshot(snap => {
-          movements = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
-          gotM = true; emit();
-        }, fail);
+        failFn = fail;
+        subscribeMovements();
       },
 
       async addProduct(fields, user) {
@@ -151,7 +161,9 @@
       },
 
       async undoSale(id, user) {
-        const { last, prev } = saleChain(movements, id);
+        // Se consultan las ventas de ESTE producto en el servidor: no depende de la ventana de movimientos cargada
+        const found = await db.collection('movements').where('productId', '==', id).get();
+        const { last, prev } = saleChain(found.docs.map(d => Object.assign({ id: d.id }, d.data())), id);
         if (!last) throw new Error('No hay ninguna venta que deshacer.');
         await db.runTransaction(async tx => {
           const ref = db.collection('products').doc(id), mref = db.collection('movements').doc(last.id);
