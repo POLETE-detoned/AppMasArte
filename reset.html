@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Restablecer datos · +Arte Home</title>
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="public">
+  <main class="pub">
+    <header class="pub-head">
+      <img class="pub-logo" src="img/logo.png" alt="Logo +Arte Home" width="96" height="96">
+      <h1 class="serif">Restablecer datos</h1>
+      <p class="pub-lead">Deja la app a cero: elimina productos, clientes, compras, ventas y promociones. <b>No se puede deshacer.</b></p>
+    </header>
+
+    <section class="pub-card" id="card">
+      <ol class="reset-steps">
+        <li><b>Publica las reglas temporales.</b> En Firebase → Firestore → Reglas pega el contenido de <code>firestore.reset.rules</code> y pulsa Publicar.</li>
+        <li><b>Revisa lo que se va a borrar</b> (abajo) y escribe la confirmación.</li>
+        <li><b>Vuelve a publicar las reglas normales</b> (<code>firestore.rules</code>) cuando termine.</li>
+      </ol>
+      <div id="counts" class="reset-counts" aria-live="polite"><div class="spinner"></div></div>
+      <p class="form-error" id="msg" role="alert"></p>
+      <label class="field"><span>Para confirmar escribe <b>BORRAR TODO</b></span><input id="confirm" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="BORRAR TODO"></label>
+      <button class="btn danger xl" id="go" type="button" disabled>Eliminar todos los datos</button>
+      <button class="btn ghost" id="local" type="button">Borrar también los datos guardados en este dispositivo</button>
+      <div id="log" class="reset-log" aria-live="polite"></div>
+    </section>
+    <footer class="pub-foot"><p>Cuando hayas terminado puedes pedir que se elimine esta página del sitio.</p></footer>
+  </main>
+  <script defer src="js/config.js"></script>
+  <script defer src="js/reset-page.js"></script>
+</body>
+</html>

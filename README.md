@@ -70,6 +70,16 @@ firestore.rules     → reglas de seguridad de la base de datos
 > ⚠️ **Limitación importante**: el resto de la app (clientes, carritos, compras) sigue usando sesiones anónimas y el PIN, que se comprueba en el navegador. Esos datos (nombre, teléfono y correo de las cuentas de clientes) **no** tienen el nivel de protección de Estilismos. Para protegerlos igual hay que pasar a todo el personal a cuentas de correo/contraseña y limitar también esas colecciones a `isAdmin()`.
 > Recomendado además: activar **Firebase App Check** (reCAPTCHA) para frenar el spam automático en el formulario público.
 
+## Restablecer los datos (dejar la app a cero)
+
+Las reglas de seguridad impiden borrar clientes, compras y el historial desde la app. Para vaciarlo todo hay una herramienta aparte, `reset.html`, que **solo funciona mientras estén publicadas unas reglas temporales**:
+
+1. En Firestore → Reglas, pega `firestore.reset.rules` y **Publicar**.
+2. Abre `https://tu-dominio/reset.html`, revisa los recuentos, escribe **BORRAR TODO** y pulsa *Eliminar todos los datos*.
+3. **Vuelve a pegar `firestore.rules`** (las normales) y **Publicar**.
+
+Las solicitudes de Estilismos se borran desde la pestaña Estilismos con una cuenta de administrador. Cuando termines, puedes eliminar `reset.html` del sitio.
+
 ## Probarla ya (sin configurar nada)
 
 Con `js/config.js` sin datos de Firebase, la app corre en **modo local** (etiqueta naranja "Modo local"): los datos viven solo en ese navegador. Sirve para ver el diseño y probar el flujo.

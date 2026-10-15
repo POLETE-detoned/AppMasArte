@@ -1,0 +1,16 @@
+rules_version = '2';
+// ─────────────────────────────────────────────────────────────────────────
+//  REGLAS TEMPORALES PARA RESTABLECER LOS DATOS  (úsalas solo unos minutos)
+//  1) Pega este archivo en Firestore → Reglas → Publicar.
+//  2) Abre reset.html y borra los datos.
+//  3) VUELVE a pegar firestore.rules (las normales) y publica.
+//  Mientras estén publicadas, cualquier sesión de la app puede borrar datos.
+// ─────────────────────────────────────────────────────────────────────────
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{col}/{id} {
+      allow read, delete: if request.auth != null
+        && col in ['products', 'movements', 'customers', 'carts', 'orders', 'promos'];
+    }
+  }
+}

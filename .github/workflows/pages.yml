@@ -24,7 +24,7 @@ jobs:
       - name: Preparar sitio (minificado)
         run: |
           mkdir -p _site/js _site/css
-          cp index.html estilismos.html manifest.webmanifest sw.js _site/
+          cp index.html estilismos.html reset.html manifest.webmanifest sw.js _site/
           cp -r img _site/
           # Minificar JS y CSS reduce lo que se descarga; si algo fallara, se publican los originales
           npx --yes esbuild@0.25.5 js/*.js --minify --outdir=_site/js --log-level=warning || cp js/*.js _site/js/
