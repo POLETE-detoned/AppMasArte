@@ -27,6 +27,13 @@ window.MASARTE_CONFIG = {
 
   currency: "EUR",
 
+  // Protección de datos (se muestra en el formulario de Estilismos). Revisa estos datos con tu asesor legal.
+  privacy: {
+    controller: "+Arte Home",      // responsable del tratamiento (razón social)
+    contactEmail: "",              // correo para ejercer derechos (acceso, supresión…)
+    retentionMonths: 24            // meses que se conservan las solicitudes
+  },
+
   // Datos de Firebase → Configuración del proyecto → Tus apps → SDK de la app web
   firebase: {
     apiKey: "AIzaSyAM8Qk9GLUBGpPFhEdtcs0CI4D98BldpSs",

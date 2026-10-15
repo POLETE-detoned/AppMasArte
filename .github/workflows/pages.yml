@@ -24,7 +24,7 @@ jobs:
       - name: Preparar sitio
         run: |
           mkdir _site
-          cp -r index.html css js img _site/
+          cp -r index.html estilismos.html css js img _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
