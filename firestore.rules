@@ -16,5 +16,26 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
+
+    // Cuentas de clientes y sus carritos.
+    match /customers/{id} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
+    match /carts/{id} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    // Compras finalizadas: se crean y se consultan, nunca se modifican ni se borran.
+    match /orders/{id} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Promociones.
+    match /promos/{id} {
+      allow read, create, update, delete: if request.auth != null;
+    }
   }
 }
