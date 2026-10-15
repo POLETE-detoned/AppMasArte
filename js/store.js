@@ -231,14 +231,14 @@
         data.movements = docs(snap);
         truncated = snap.size >= movLimit;
         ready.movements = true; emit();
-      }, failFn);
+      }, e => failFn(e, 'movements'));
     }
     function listen(name, query, onFirst) {
       query.onSnapshot(snap => {
         data[name] = docs(snap); ready[name] = true;
         if (onFirst) onFirst(snap);
         emit();
-      }, failFn);
+      }, e => failFn(e, name));
     }
 
     // Escribe dentro de una transacción lo que ha decidido el núcleo
@@ -286,8 +286,8 @@
         db = firebase.firestore();
         try { await db.enablePersistence({ synchronizeTabs: true }); } catch (e) { /* no crítico */ }
 
-        failFn = e => setStatus({ error: e.code === 'permission-denied'
-          ? 'Firestore rechazó el acceso. Revisa las reglas de seguridad (ver README).'
+        failFn = (e, name) => setStatus({ error: e.code === 'permission-denied'
+          ? 'Firestore rechazó el acceso a «' + (name || '?') + '». Copia el contenido actual de firestore.rules en Firebase → Firestore → Reglas y pulsa Publicar (ver README).'
           : 'Error de base de datos: ' + (e.message || e) });
 
         listen('products', col('products'), snap => setStatus({ online: !snap.metadata.fromCache || navigator.onLine }));
