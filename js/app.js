@@ -446,8 +446,8 @@
     if (!list.length) {
       const none = !state.products.length;
       grid.innerHTML = '<div class="empty">' + icon('inv', 'big') + '<h3 class="serif">' + (none ? 'Aún no hay productos' : 'Nada por aquí') + '</h3>' +
-        '<p class="muted">' + (none ? 'Añade el primero o carga unos productos de ejemplo para ver cómo funciona.' : 'Prueba con otra categoría, estado o búsqueda.') + '</p>' +
-        (none ? '<div class="empty-actions"><button class="btn primary" data-act="new" type="button">Añadir producto</button><button class="btn ghost" data-act="seed" type="button">Cargar ejemplos</button></div>' : '') + '</div>';
+        '<p class="muted">' + (none ? (store.mode === 'local' ? 'Añade el primero o carga unos productos de ejemplo para ver cómo funciona.' : 'Pulsa «Añadir producto» para registrar el primero.') : 'Prueba con otra categoría, estado o búsqueda.') + '</p>' +
+        (none ? '<div class="empty-actions"><button class="btn primary big" data-act="new" type="button">' + icon('plus') + 'Añadir producto</button>' + (store.mode === 'local' ? '<button class="btn ghost" data-act="seed" type="button">Cargar ejemplos</button>' : '') + '</div>' : '') + '</div>';
       state.animate = false; return;
     }
     grid.innerHTML = list.map(cardHTML).join('');
