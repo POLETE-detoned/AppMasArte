@@ -65,10 +65,6 @@
 
   /* ---------- Panel de solicitudes ---------- */
   function gateHTML() {
-    if (S.mode === 'local') {
-      return '<div class="panel st-gate"><div class="done-ic">' + icon('admin') + '</div><h3 class="serif">Acceso restringido</h3><p class="muted">Solo el personal autorizado puede ver las solicitudes. En modo de prueba se usa el PIN de administrador.</p>' +
-        '<button class="btn primary" type="button" data-st="pin">Introducir PIN de administrador</button></div>';
-    }
     return '<div class="panel st-gate"><div class="done-ic">' + icon('admin') + '</div><h3 class="serif">Acceso restringido</h3>' +
       '<p class="muted">Inicia sesión con tu cuenta autorizada para ver y gestionar las solicitudes. Contienen datos personales de clientes.</p>' +
       '<form id="stLogin" novalidate><label class="field"><span>Correo electrónico</span><input id="stMail" type="email" autocomplete="username" inputmode="email" required></label>' +
@@ -216,7 +212,6 @@
       else if (a === 'again') renderForm();
       else if (a === 'copy') { const i = $('#stLink'); try { await navigator.clipboard.writeText(i.value); } catch (er) { i.select(); document.execCommand('copy'); } toast('Enlace copiado', { type: 'ok' }); }
       else if (a === 'logout') { stopWatch(); await S.signOut(); renderBody(true); toast('Sesión cerrada'); }
-      else if (a === 'pin') { if (await U.guardAdmin()) renderBody(true); }
       return;
     }
     const card = e.target.closest('.sr'); if (card && $('#view-styling').contains(card)) openDetail(card.dataset.id);

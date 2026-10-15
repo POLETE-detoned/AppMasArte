@@ -3,31 +3,42 @@
 App web (HTML + CSS + JS, sin build) para una tienda de interiorismo: inventario por categorías, botón **Vender**, historial con quién hizo qué, resumen y **sincronización en tiempo real** entre móviles y ordenadores.
 
 ```
-index.html        → la app
-css/styles.css    → diseño
-img/              → logo e iconos (+Arte Home)
-js/config.js      → ⚙️ aquí pones tu Firebase y el PIN
-js/store.js       → capa de datos (Firestore o modo local)
-js/app.js         → lógica de la interfaz
-js/market.js      → tienda, carrito y administración
-js/styling.js     → solicitudes de estilismo (datos, seguridad, formulario)
-js/styling-ui.js  → pestaña «Estilismos» y panel de gestión
-estilismos.html   → formulario público para clientes
-firestore.rules   → reglas de seguridad de la base de datos
-firebase.json     → publicación en Firebase Hosting
+index.html          → la app
+estilismos.html     → formulario público de Estilismos (para clientes)
+css/styles.css      → diseño
+img/                → logo e iconos (+Arte Home)
+js/config.js        → ⚙️ aquí pones tu Firebase y el PIN
+js/store.js         → capa de datos (Firestore o modo local)
+js/app.js           → núcleo, Inventario y Ventas
+js/customers.js     → Clientes y compra (catálogo, carrito, descuentos)
+js/styling*.js      → Estilismos (solicitudes, seguridad, panel)
+sw.js               → caché para abrir al instante y sin conexión
+firestore.rules     → reglas de seguridad de la base de datos
 ```
 
-## Tienda, carritos y administración
+## Cómo se usa (4 pestañas)
 
-Pestañas: **Inventario** (gestión), **Tienda** (catálogo para vender), **Carrito** (uno por cuenta de cliente), **Ventas**, **Resumen** y **Admin** (PIN `adminPin` de `js/config.js`).
+**Acceso**: cada persona entra con su **nombre** y el **PIN de la tienda** (`shopPin` en `js/config.js`, por defecto `2010`). Todo lo que hace queda registrado con su nombre.
 
-- **Cuentas**: cada cliente tiene su cuenta y su carrito independiente. Atiende el dependiente identificado.
-- **Stock** = físico · reservado · disponible. Al añadir al carrito se **reservan** las unidades (`reservationMinutes`, 30 por defecto). Quitar un artículo, vaciar el carrito o dejar caducar la reserva las libera. Al **Finalizar compra** se descuentan definitivamente y se guarda el pedido. La reserva se decide dentro de una transacción de Firestore: dos cuentas no pueden quedarse con la misma unidad.
-- **Descuentos**: 0, 10, 20, 30, 40, 50 y 100 % (gratis) por línea. Cada producto tiene su apartado "Descuentos" con el desglose original · descuento · final.
-- **Promociones** (las crea el administrador): un % para todo o para una categoría, con importe mínimo opcional. **No se suman** a un descuento manual de la línea salvo que la promoción esté marcada como *acumulable* (autorización expresa).
-- **Admin**: carritos activos, compras finalizadas, promociones y descuento por producto, reservas (con liberación manual) y stock físico/reservado/disponible.
+| Pestaña | Para qué sirve |
+|---|---|
+| **Inventario** | Añadir, editar y eliminar productos; reponer stock; venta rápida de 1 unidad y deshacerla. |
+| **Clientes** | Crear clientes, corregir sus datos y ver todo lo que han comprado (línea de tiempo por fechas). Botón **Comprar** → elige productos (con descuentos del 10 al 100 %), revisa el carrito, aplica una promoción y finaliza la compra. |
+| **Ventas** | Resumen (vendido hoy, ingresos, ventas por dependiente, stock bajo) y el historial completo con filtros y exportación a CSV. |
+| **Estilismos** | Solicitudes de estilismo de clientes (ver más abajo). |
 
-> Si ya tenías la base de datos en marcha, **vuelve a pegar `firestore.rules`** en Firestore → Reglas → Publicar: hay colecciones nuevas (`customers`, `carts`, `orders`, `promos`).
+- **Stock** = físico · reservado · disponible. Al añadir al carrito se **reservan** las unidades (`reservationMinutes`, 30 por defecto). Quitar un artículo, vaciar el carrito o dejar caducar la reserva las libera. Al **Finalizar compra** se descuentan definitivamente y se guarda el pedido. La reserva se decide dentro de una transacción de Firestore: dos clientes no pueden quedarse con la misma unidad.
+- **Promociones**: se crean desde el carrito (**Gestionar**). **No se suman** a un descuento manual de la línea salvo que estén marcadas como *acumulables* (autorización expresa).
+
+> Si ya tenías la base de datos en marcha, **vuelve a pegar `firestore.rules`** en Firestore → Reglas → Publicar cuando se añadan colecciones nuevas.
+
+## Velocidad
+
+- Al publicar, **GitHub Actions minifica** el JS y el CSS (≈240 KB → ≈50 KB comprimidos en total).
+- El SDK de Firebase se **descarga mientras se escribe el nombre y el PIN**, no después.
+- **Service worker** (`sw.js`): las visitas siguientes abren al instante y la web abre incluso sin conexión; se actualiza solo en segundo plano.
+- Las pantallas se **repintan una sola vez** aunque lleguen varios cambios a la vez, las listas largas solo dibujan lo visible y los buscadores esperan a que termines de escribir.
+- Se puede **instalar como app** en el móvil (Compartir → Añadir a pantalla de inicio).
 
 ## Estilismos (solicitudes de clientes)
 
@@ -61,7 +72,7 @@ Pestañas: **Inventario** (gestión), **Tienda** (catálogo para vender), **Carr
 
 ## Probarla ya (sin configurar nada)
 
-Con `js/config.js` tal cual, la app corre en **modo local** (etiqueta naranja "Modo local"): los datos viven solo en ese navegador. Sirve para ver el diseño y probar el flujo.
+Con `js/config.js` sin datos de Firebase, la app corre en **modo local** (etiqueta naranja "Modo local"): los datos viven solo en ese navegador. Sirve para ver el diseño y probar el flujo.
 
 ```bash
 npx serve .      # o abre index.html directamente

@@ -12,7 +12,8 @@
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap"></noscript>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="public">
@@ -38,8 +39,9 @@
     </footer>
   </main>
 
-  <script src="js/config.js"></script>
-  <script src="js/styling.js"></script>
-  <script src="js/estilismos-page.js"></script>
+  <script defer src="js/config.js"></script>
+  <script defer src="js/styling.js"></script>
+  <script defer src="js/estilismos-page.js"></script>
+  <script>if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });</script>
 </body>
 </html>
