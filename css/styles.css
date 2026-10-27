@@ -701,3 +701,14 @@ body.public { min-height: 100vh; }
 .rc { display: flex; justify-content: space-between; align-items: center; background: var(--cream); border-radius: 12px; padding: 10px 14px; font-size: 15px; } .rc b { font-family: var(--serif); font-size: 22px; } .rc.na { opacity: .6; } .rc.na b { font-family: var(--sans); font-size: 13px; }
 .reset-log { margin-top: 14px; display: grid; gap: 6px; font-size: 14.5px; } .reset-log p { margin: 0; } .reset-log .ok { color: #2f5d31; } .reset-log .bad { color: var(--out); font-weight: 600; }
 #card .btn { width: 100%; margin-top: 10px; }
+
+/* ============================================================
+   FOTOS DE PRODUCTO: siempre completas, sin recortar
+   (antes se llenaba el recuadro y se cortaban los bordes de las fotos verticales)
+   ============================================================ */
+.card-photo { aspect-ratio: 1 / 1; background: linear-gradient(145deg, #f6efe4, #eadfcd); }
+.card-photo::after { display: none; }
+.card-photo img { object-fit: contain; object-position: center; }
+.card:hover .card-photo img { transform: none; }
+.photo-prev img, .cl-img img, .it-th img { object-fit: contain; object-position: center; background: linear-gradient(145deg, #f6efe4, #eadfcd); }
+.photo-prev { background: linear-gradient(145deg, #f6efe4, #eadfcd); }

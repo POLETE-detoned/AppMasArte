@@ -589,7 +589,7 @@
     $('#f_cat', s).addEventListener('change', () => { if (!photo) paint(); });
     $('#photoIn', s).addEventListener('change', async e => {
       const f = e.target.files[0]; if (!f) return;
-      try { photo = await resizeImage(f, 640, 0.74); paint(); } catch (err) { $('#pfErr', s).textContent = errMsg(err); }
+      try { photo = await resizeImage(f, 800, 0.78); paint(); } catch (err) { $('#pfErr', s).textContent = errMsg(err); }
     });
     $('#photoRm', s).addEventListener('click', () => { photo = ''; paint(); });
     s.addEventListener('click', e => { if (e.target.closest('[data-close]')) tryCloseSheet(); });
