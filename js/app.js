@@ -378,7 +378,9 @@
         '</div>' +
       '</div>' +
       '<div class="result-line" id="resultLine"></div>' +
-      '<div class="grid" id="grid"></div>';
+      '<div class="grid" id="grid"></div>' +
+      '<div style="text-align:center;margin:18px 0"><button class="btn soft" id="stockCsvBtn" type="button">' + icon('download') + 'Exportar stock (CSV para Excel)</button></div>';
+    $('#stockCsvBtn', root).addEventListener('click', exportStockCSV);
     let qt; $('#q').addEventListener('input', e => { const v = e.target.value; clearTimeout(qt); qt = setTimeout(() => { state.q = v; state.animate = true; renderGrid(); }, 120); });
     $('#statusChips').addEventListener('click', e => {
       const b = e.target.closest('[data-status]'); if (!b) return;
@@ -777,6 +779,27 @@
     if (list.length > shown.length) html += '<button class="btn soft more" data-more type="button">Mostrar más (' + (list.length - shown.length) + ')</button>';
     box.innerHTML = html;
     state.animate = false;
+  }
+
+  function downloadCSV(rows, name) {
+    const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  // Todo el inventario: una fila por producto con todas sus propiedades
+  function exportStockCSV() {
+    const num = n => String(Number(n) || 0).replace('.', ',');
+    const rows = [['Nombre', 'Referencia', 'Categoría', 'Variante', 'Precio', 'Stock físico', 'Reservado', 'Disponible', 'Estado', 'Valor en stock', 'Notas', 'Tiene foto', 'Última venta', 'Vendido por']];
+    state.products.slice().sort((a, b) => (a.category || '').localeCompare(b.category || '', 'es') || (a.name || '').localeCompare(b.name || '', 'es')).forEach(p => {
+      const av = avail(p), phys = p.stock || 0;
+      const ls = p.lastSale;
+      rows.push([p.name, p.code, p.category, p.variant, num(p.price), phys, phys - av, av, phys <= 0 ? 'Agotado' : (av <= LOW ? 'Últimas unidades' : 'Disponible'), num((p.price || 0) * phys), p.notes, p.photo ? 'Sí' : 'No', ls && ls.at ? new Date(ls.at).toLocaleString('es-ES') : '', ls && ls.user || '']);
+    });
+    downloadCSV(rows, 'stock-' + ymd(Date.now()) + '.csv');
   }
 
   function exportCSV() {
